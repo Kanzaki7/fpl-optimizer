@@ -15,3 +15,8 @@ create table public.subscribers (
 -- fermée à la clé publique. Seuls le site (route serveur) et le workflow
 -- GitHub y accèdent, avec la clé secrète.
 alter table public.subscribers enable row level security;
+
+-- Les nouveaux projets Supabase ne donnent plus de droits automatiques sur
+-- les tables créées en SQL : on les accorde au seul rôle serveur.
+-- (Ni « anon » ni « authenticated » : la clé publique n'a aucun accès.)
+grant select, insert, update, delete on table public.subscribers to service_role;
