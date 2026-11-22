@@ -10,7 +10,22 @@ export interface Settings {
   budget: number;
   force: number[];
   exclude: number[];
+  /** « optimal » : équipe idéale ; « mine » : transferts à partir de l'équipe importée */
+  mode: "optimal" | "mine";
+  entry: number | null;
+  /** transferts gratuits (null = estimation de l'import) et maximum de transferts */
+  ft: number | null;
+  maxT: number;
 }
+
+/** Équipe de départ pour le calcul des transferts. */
+export interface Current {
+  picks: number[];
+  bank: number;
+  ft: number;
+}
+
+export const HIT = 4;
 
 export const QUOTA = { GK: 2, DEF: 5, MID: 5, FWD: 3 } as const;
 const XI_MIN = { GK: 1, DEF: 3, MID: 2, FWD: 1 } as const;
@@ -19,13 +34,17 @@ const MAX_PER_CLUB = 3;
 
 export function defaults(meta: Meta): Settings {
   const from = meta.gws[0];
-  return { from, to: Math.min(from + meta.horizon - 1, meta.gws[meta.gws.length - 1]), budget: meta.budget, force: [], exclude: [] };
+  return {
+    from, to: Math.min(from + meta.horizon - 1, meta.gws[meta.gws.length - 1]), budget: meta.budget,
+    force: [], exclude: [], mode: "optimal", entry: null, ft: null, maxT: 2,
+  };
 }
 
 export function sameSettings(a: Settings, b: Settings) {
   const ids = (x: number[]) => [...x].sort().join(",");
   return a.from === b.from && a.to === b.to && Math.abs(a.budget - b.budget) < 1e-6 &&
-    ids(a.force) === ids(b.force) && ids(a.exclude) === ids(b.exclude);
+    ids(a.force) === ids(b.force) && ids(a.exclude) === ids(b.exclude) &&
+    a.mode === b.mode && a.entry === b.entry && a.ft === b.ft && a.maxT === b.maxT;
 }
 
 /** Points attendus d'un joueur sur la période (somme des journées). */
@@ -39,13 +58,21 @@ export function periodValue(p: Player, meta: Meta, from: number, to: number) {
 const term = (c: number, v: string) => `${c < 0 ? "-" : "+"} ${Math.abs(c).toFixed(5)} ${v}`;
 
 /** Modèle au format LP (CPLEX), lisible par HiGHS. */
-export function buildLp(cands: Player[], value: Map<number, number>, s: Settings, benchWeight: number) {
+export function buildLp(cands: Player[], value: Map<number, number>, s: Settings, benchWeight: number,
+  current?: { picks: number[]; ft: number; maxT: number }) {
   const L: string[] = ["Maximize", " obj:"];
   for (const p of cands) {
     const v = value.get(p.id) ?? 0;
     L.push(`  ${term(v * (1 - benchWeight), `x${p.id}`)} ${term(v * benchWeight, `s${p.id}`)}`);
   }
+  if (current) L.push(`  - ${HIT} pen`);
   L.push("Subject To");
+  if (current) {
+    // chaque joueur acheté au-delà des transferts gratuits coûte 4 points
+    const buys = cands.filter((p) => !current.picks.includes(p.id)).map((p) => `+ s${p.id}`).join(" ") || "+ 0 pen";
+    L.push(` gratuits: ${buys} - pen <= ${current.ft}`);
+    L.push(` plafond: ${buys} <= ${current.maxT}`);
+  }
   // prix en dixièmes pour éviter les erreurs d'arrondi (5.5 + 4.5 …)
   L.push(` budget: ${cands.map((p) => `+ ${Math.round(p.price * 10)} s${p.id}`).join(" ")} <= ${Math.round(s.budget * 10)}`);
   L.push(` onze: ${cands.map((p) => `+ x${p.id}`).join(" ")} = 11`);
@@ -61,13 +88,18 @@ export function buildLp(cands: Player[], value: Map<number, number>, s: Settings
   for (const p of cands) clubs.set(p.team_id, [...(clubs.get(p.team_id) ?? []), p]);
   for (const [t, ps] of clubs) L.push(` club${t}: ${ps.map((p) => `+ s${p.id}`).join(" ")} <= ${MAX_PER_CLUB}`);
   for (const id of s.force) if (cands.some((p) => p.id === id)) L.push(` impose${id}: s${id} = 1`);
+  if (current) L.push("Bounds", " 0 <= pen <= 15", "General", " pen");
   L.push("Binary");
   L.push(" " + cands.flatMap((p) => [`s${p.id}`, `x${p.id}`]).join(" "));
   L.push("End");
   return L.join("\n");
 }
 
-export type Solution = Squad & { value: Map<number, number> };
+export type Solution = Squad & {
+  value: Map<number, number>;
+  /** mode « mon équipe » : transferts conseillés */
+  moves?: { out: number[]; in: number[]; hits: number; keep: number; with?: number };
+};
 
 /** Capitaine, vice, formation et banc, comme optimize.lineup côté Python. */
 export function lineup(byId: Map<number, Player>, squadIds: number[], xiIds: number[], value: Map<number, number>, budget: number): Solution {

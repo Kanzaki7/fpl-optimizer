@@ -107,7 +107,7 @@ def run(args):
             "source": "replay" if args.replay else "api", "api_calls": client.calls}
     payload = export.build_payload(df, pool, motifs, lineup, stability, ctx, per_gw,
                                    db.next_fixtures(con, next_gw, 5), db.gw_history(con),
-                                   teams, meta)
+                                   teams, meta, db.roster(con))
     export.write(payload, df, pool, motifs, stability, args.out)
 
     report(pool, lineup, args)

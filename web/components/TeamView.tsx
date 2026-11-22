@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Meta, Player, Pos, Squad } from "@/lib/types";
+import { fromOther, type Meta, type Other, type Player, type Pos, type Squad } from "@/lib/types";
+import type { Entry } from "@/lib/entry";
 import { POS_ORDER, num, pad2, pct, price, signed } from "@/lib/format";
 import { periodValue, type Solution } from "@/lib/plan";
-import { PlanError, solve } from "@/lib/solver";
+import { HIT, PlanError, solve, solveTransfers } from "@/lib/solver";
 import { Reticle, Shape } from "./Shape";
 import { PlayerSheet } from "./PlayerSheet";
 import { Planner } from "./Planner";
@@ -12,13 +13,14 @@ import { useSettings } from "./SettingsProvider";
 interface Props {
   squad: Squad;
   players: Player[];
+  others: Other[];
   meta: Meta;
 }
 
 type Role = "C" | "V" | "XI" | "BANC";
 
-function Token({ p, v, role, forced, selected, onOpen }: {
-  p: Player; v: number; role: Role; forced: boolean; selected: boolean; onOpen: (p: Player) => void;
+function Token({ p, v, role, forced, bought, selected, onOpen }: {
+  p: Player; v: number; role: Role; forced: boolean; bought?: boolean; selected: boolean; onOpen: (p: Player) => void;
 }) {
   const flagged = p.status !== "a" || (p.chance != null && p.chance < 100);
   return (
@@ -30,6 +32,7 @@ function Token({ p, v, role, forced, selected, onOpen }: {
         {role === "C" || role === "V" ? <span className={`badge-c ${role === "V" ? "v" : ""}`}>{role}</span> : null}
         {flagged ? <span className="flag-dot" title="Disponibilité incertaine" /> : null}
         {forced ? <span className="pin" title="Imposé">●</span> : null}
+        {bought ? <span className="new">ACHAT</span> : null}
       </span>
       <span className="nm">{p.name}</span>
       <span className="meta"><span className="club">{p.team}</span>{price(p.price)}</span>
@@ -55,9 +58,33 @@ const ROW_Y: Record<Pos, number> = { GK: 11, DEF: 34, MID: 58, FWD: 82 };
 const period = (from: number, to: number) =>
   from === to ? `la journée ${from}` : `les journées ${from} à ${to}`;
 
-export function TeamView({ squad: base, players, meta }: Props) {
+export function TeamView({ squad: base, players: evaluated, others, meta }: Props) {
   const { settings: s, isDefault } = useSettings();
+  // les joueurs non évalués servent aux équipes importées (comptés à 0 point)
+  const players = useMemo(() => [...evaluated, ...others.map(fromOther)], [evaluated, others]);
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  const mine = s.mode === "mine";
+
+  // Équipe importée : lecture seule de l'API publique FPL, via le serveur du site
+  const [entry, setEntry] = useState<Entry | null>(null);
+  const [entryError, setEntryError] = useState<string | null>(null);
+  const [entryLoading, setEntryLoading] = useState(false);
+  useEffect(() => {
+    if (!mine || !s.entry) { setEntry(null); setEntryError(null); return; }
+    let live = true;
+    setEntryLoading(true);
+    fetch(`/api/equipe/${s.entry}`)
+      .then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.error || "Import impossible.");
+        return body as Entry;
+      })
+      .then((e) => { if (live) { setEntry(e); setEntryError(null); } })
+      .catch((e: Error) => { if (live) { setEntry(null); setEntryError(e.message); } })
+      .finally(() => { if (live) setEntryLoading(false); });
+    return () => { live = false; };
+  }, [mine, s.entry]);
+  const transfers = mine && entry != null;
   const [open, setOpen] = useState<Player | null>(null);
   const close = useCallback(() => setOpen(null), []);
 
@@ -67,13 +94,16 @@ export function TeamView({ squad: base, players, meta }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (isDefault) { setSol(null); setBest(null); setError(null); return; }
+    if (isDefault || (mine && !entry)) { setSol(null); setBest(null); setError(null); return; }
     let live = true;
     setBusy(true);
     const t = setTimeout(async () => {
       try {
-        const r = await solve(players, meta, s);
-        const ref = s.force.length ? (await solve(players, meta, { ...s, force: [] })).ep_xi : null;
+        const known = entry?.picks.filter((id) => byId.has(id)) ?? [];
+        const r = transfers
+          ? await solveTransfers(players, meta, s, { picks: known, bank: entry!.bank, ft: entry!.ft })
+          : await solve(players, meta, s);
+        const ref = !transfers && s.force.length ? (await solve(players, meta, { ...s, force: [] })).ep_xi : null;
         if (live) { setSol(r); setBest(ref); setError(null); }
       } catch (e) {
         if (live) setError(e instanceof PlanError ? e.message : "Le calcul a échoué. Rechargez la page.");
@@ -82,7 +112,7 @@ export function TeamView({ squad: base, players, meta }: Props) {
       }
     }, 200);
     return () => { live = false; clearTimeout(t); };
-  }, [s, isDefault, players, meta]);
+  }, [s, isDefault, players, meta, mine, entry, transfers, byId]);
 
   const squad: Squad = sol ?? base;
   const value = (id: number) => sol ? sol.value.get(id) ?? 0 : periodValue(byId.get(id)!, meta, s.from, s.to);
@@ -97,7 +127,10 @@ export function TeamView({ squad: base, players, meta }: Props) {
   const watch = all.filter((p) => p.status !== "a" || (p.chance != null && p.chance < 100) || p.share < 0.8);
   const values = [...xi].sort((a, b) => value(b.id) / b.price - value(a.id) / a.price).slice(0, 3);
   const n = s.to - s.from + 1;
-  const own = s.force.length === 15;
+  const moves = transfers ? sol?.moves : undefined;
+  const net = moves ? squad.ep_xi - HIT * moves.hits : squad.ep_xi;
+  const gain = moves ? (moves.with ?? 0) - HIT * moves.hits - moves.keep : 0;
+  const bought = new Set(moves?.in ?? []);
 
   return (
     <>
@@ -105,27 +138,37 @@ export function TeamView({ squad: base, players, meta }: Props) {
         <div className="kicker">
           <span className="tag accent">Saison {meta.season}</span>
         </div>
-        <h1>{own ? "Votre équipe" : "L'équipe optimale"} pour {period(s.from, s.to)}</h1>
+        <h1>{mine ? "Vos transferts" : "L'équipe optimale"} pour {period(s.from, s.to)}</h1>
         <p className="lead">
-          {own
-            ? "Vos 15 joueurs, avec le meilleur onze, le capitaine et l'écart avec l'équipe optimale."
+          {mine
+            ? entry
+              ? `${entry.name} : les transferts qui rapportent le plus sur ${n > 1 ? `ces ${n} journées` : "cette journée"}, pénalités comprises. Vous les validez vous-même dans l'application FPL.`
+              : "Entrez l'identifiant de votre équipe FPL : le site lit votre équipe publique, sans mot de passe, et propose les meilleurs transferts."
             : `Les 15 joueurs qui devraient rapporter le plus sur ${n > 1 ? `ces ${n} journées` : "cette journée"}, pour ${price(s.budget)}, dans le respect des règles du jeu. Changez la période, le budget ou imposez des joueurs : l'équipe se recalcule.`}
         </p>
       </section>
 
-      <Planner meta={meta} players={players} />
+      <Planner meta={meta} players={players} entry={entry} entryError={entryError} entryLoading={entryLoading} />
 
       {error ? <div className="notice" role="alert"><span className="label" style={{ color: "var(--bad)" }}>Impossible</span><span>{error}</span></div> : null}
 
       <div className={`stats ${busy ? "busy" : ""}`} aria-label="Résumé de l'équipe" aria-busy={busy}>
-        <div className="stat"><div className="label">Points attendus</div><div className="v">{num(squad.ep_xi)} <small>XI · C ×2</small></div></div>
-        {best != null && sol ? (
+        <div className="stat"><div className="label">Points attendus</div><div className="v">{num(net)} <small>XI · C ×2</small></div></div>
+        {moves ? (
+          <div className="stat"><div className="label">Gain des transferts</div>
+            <div className={`v ${gain > 0.05 ? "pos" : ""}`}>{signed(gain)}</div></div>
+        ) : best != null && sol ? (
           <div className="stat"><div className="label">Écart à l&apos;optimum</div>
             <div className={`v ${sol.ep_xi - best < -0.05 ? "neg" : ""}`}>{signed(sol.ep_xi - best)}</div></div>
         ) : (
           <div className="stat"><div className="label">Période</div><div className="v">J{s.from}{n > 1 ? `–${s.to}` : ""}</div></div>
         )}
-        <div className="stat"><div className="label">Coût</div><div className="v">{price(squad.cost)}</div></div>
+        {moves ? (
+          <div className="stat"><div className="label">Transferts</div>
+            <div className="v">{moves.in.length}{moves.hits ? <small> · −{HIT * moves.hits} pts</small> : null}</div></div>
+        ) : (
+          <div className="stat"><div className="label">Coût</div><div className="v">{price(squad.cost)}</div></div>
+        )}
         <div className="stat"><div className="label">Banque</div><div className="v">{price(squad.bank)}</div></div>
         <div className="stat"><div className="label">Formation</div><div className="v">{squad.formation}</div></div>
         <div className="stat"><div className="label">Capitaine</div><div className="v">{cap?.name.toUpperCase()}</div></div>
@@ -142,19 +185,53 @@ export function TeamView({ squad: base, players, meta }: Props) {
             <PitchLines />
             {rows.map(({ pos, ps }) => (
               <div key={pos} className="row" style={{ top: `${ROW_Y[pos]}%` }}>
-                {ps.map((p) => <Token key={p.id} p={p} v={value(p.id)} role={role(p.id)} forced={s.force.includes(p.id)}
+                {ps.map((p) => <Token key={p.id} p={p} v={value(p.id)} role={role(p.id)} forced={s.force.includes(p.id)} bought={bought.has(p.id)}
                   selected={open?.id === p.id} onOpen={setOpen} />)}
               </div>
             ))}
           </div>
           <div className="bench">
             <span className="label">Banc · {pad2(bench.length)}</span>
-            {bench.map((p) => <Token key={p.id} p={p} v={value(p.id)} role="BANC" forced={s.force.includes(p.id)}
+            {bench.map((p) => <Token key={p.id} p={p} v={value(p.id)} role="BANC" forced={s.force.includes(p.id)} bought={bought.has(p.id)}
               selected={open?.id === p.id} onOpen={setOpen} />)}
           </div>
         </div>
 
         <div className="side">
+          {moves ? (
+            <section className="panel reticle card"><span className="rt" />
+              <h2>Transferts conseillés</h2>
+              {moves.in.length === 0 ? (
+                <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
+                  Gardez votre équipe : aucun transfert ne rapporte assez sur cette période{entry && entry.ft > 1 ? " (vos transferts gratuits se reportent)" : ""}.
+                </p>
+              ) : (
+                <div className="moves">
+                  {moves.out.map((o, i) => {
+                    const po = byId.get(o)!, pi = byId.get(moves.in[i])!;
+                    return (
+                      <div key={o} className="move">
+                        <button className="out" onClick={() => setOpen(po)}><span className="n">{po.name}</span><span className="s">{price(po.price)} · {num(value(o))} pts</span></button>
+                        <span className="arrow" aria-label="remplacé par">→</span>
+                        <button className="in" onClick={() => setOpen(pi)}><span className="n">{pi.name}</span><span className="s">{price(pi.price)} · {num(value(pi.id))} pts</span></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <dl className="moves-sum">
+                <dt>Sans transfert</dt><dd>{num(moves.keep)} pts</dd>
+                <dt>Avec ces transferts</dt><dd>{num(moves.with)} pts</dd>
+                {moves.hits ? <><dt>Pénalité</dt><dd>−{HIT * moves.hits} pts</dd></> : null}
+                <dt><b>Gain net</b></dt><dd><b>{signed(gain)} pts</b></dd>
+              </dl>
+              <p className="hint" style={{ margin: "8px 0 0" }}>Onze avec capitaine doublé, plus un quart des points du banc (remplacements automatiques).</p>
+              <p className="hint" style={{ margin: "10px 0 0" }}>
+                Équipe de la journée {entry!.event}{entry!.freehit ? " (avant Free Hit)" : ""}. Les transferts déjà faits pour la prochaine journée ne sont pas visibles avant sa date limite ; prix de revente estimés au prix actuel.
+              </p>
+            </section>
+          ) : null}
+
           <section className="panel card">
             <h2>Brassard</h2>
             <button className="list-btn" onClick={() => setOpen(cap)}>

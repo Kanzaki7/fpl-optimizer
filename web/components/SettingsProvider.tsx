@@ -7,6 +7,8 @@ interface Ctx {
   settings: Settings;
   base: Settings;
   isDefault: boolean;
+  /** aucun réglage modifié à part le mode et l'équipe importée */
+  isClean: boolean;
   update: (patch: Partial<Settings>) => void;
   toggle: (kind: "force" | "exclude", id: number) => void;
   reset: () => void;
@@ -23,12 +25,11 @@ export function SettingsProvider({ meta, children }: { meta: Meta; children: Rea
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      // des réglages d'une journée passée ne valent plus rien
-      if (saved && saved.gw0 === meta.gws[0]) {
-        const { gw0: _, ...s } = saved;
-        void _;
-        setSettings({ ...base, ...s });
-      }
+      if (!saved) return;
+      const { gw0, ...s } = saved;
+      // une période d'une journée passée ne vaut plus rien ; l'équipe importée, si
+      setSettings(gw0 === meta.gws[0] ? { ...base, ...s }
+        : { ...base, mode: s.mode ?? "optimal", entry: s.entry ?? null, maxT: s.maxT ?? base.maxT });
     } catch {}
   }, [base, meta.gws]);
 
@@ -41,6 +42,7 @@ export function SettingsProvider({ meta, children }: { meta: Meta; children: Rea
     settings,
     base,
     isDefault: sameSettings(settings, base),
+    isClean: sameSettings({ ...settings, mode: base.mode, entry: base.entry }, base),
     update: (patch) => {
       const s = { ...settings, ...patch };
       if (s.to < s.from) s.to = s.from;
@@ -55,7 +57,8 @@ export function SettingsProvider({ meta, children }: { meta: Meta; children: Rea
         [other]: settings[other].filter((x) => x !== id),
       });
     },
-    reset: () => save(base),
+    // garde l'équipe importée et le mode, remet le reste à zéro
+    reset: () => save({ ...base, mode: settings.mode, entry: settings.entry }),
   }), [settings, base, save]);
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

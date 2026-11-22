@@ -36,7 +36,7 @@ def pepites(df):
 
 
 def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_next,
-                  gw_hist, teams, meta):
+                  gw_hist, teams, meta, roster):
     nxt = {tid: [[int(r.gw), r.opp, int(r.home), int(r.fdr)] for r in part.itertuples()]
            for tid, part in fixtures_next.groupby("team_id")}
     hist = {pid: [[int(r.gw), int(r.total_points), int(r.minutes)] for r in part.itertuples()]
@@ -81,7 +81,13 @@ def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_nex
                           "n_games": int(c["n_games"]), "fdr": _num(c["avg_fdr"], 2),
                           "cs_prob": _num(c["cs_prob"], 3), "next": nxt.get(int(tid), [])})
 
+    # Joueurs non évalués (blessés longue durée, partis, sans temps de jeu) :
+    # le site en a besoin pour afficher une équipe importée qui en contient.
+    others = [[int(i), r["name"], r["team"], int(r["team_id"]), r["pos"], _num(r["price"], 1), r["status"]]
+              for i, r in roster.drop(index=df.index, errors="ignore").iterrows()]
+
     return {
+        "others": others,
         "meta": {
             **meta,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

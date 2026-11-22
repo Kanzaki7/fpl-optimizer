@@ -15,7 +15,7 @@ règles du jeu, et un site pour l'explorer.
 - **Nettoyage et variables en SQL** : six tables SQLite, puis des vues avec jointures, agrégats, sous-requêtes et fonctions de fenêtre ([`features.sql`](pipeline/sql/features.sql)).
 - **Modèle** de points attendus par joueur et par journée : temps de jeu projeté, niveau sur trois saisons et sur la saison en cours, xG et xA, calendrier.
 - **Optimisation** par programmation linéaire en nombres entiers (PuLP, HiGHS) : budget, quotas par poste, 3 joueurs par club au plus, onze valide, capitaine.
-- **Site** (Next.js) : choix de la période et du budget, joueurs imposés ou exclus, évaluation de sa propre équipe. Le solveur tourne dans le navigateur (HiGHS en WebAssembly).
+- **Site** (Next.js) : choix de la période et du budget, joueurs imposés ou exclus, et import de son équipe FPL (lecture seule, sans mot de passe) pour obtenir les transferts conseillés, pénalités comprises. Le solveur tourne dans le navigateur (HiGHS en WebAssembly).
 
 ## Résultat
 

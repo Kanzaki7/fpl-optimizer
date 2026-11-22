@@ -91,7 +91,11 @@ export interface Meta {
   params: Record<string, number | number[]>;
 }
 
+/** [id, nom, club, id club, poste, prix, statut] : joueurs non évalués */
+export type Other = [number, string, string, number, Pos, number, string];
+
 export interface Payload {
+  others?: Other[];
   meta: Meta;
   squad: Squad;
   teams: Team[];
@@ -115,4 +119,16 @@ export interface IndicatorBacktest {
   share_thresholds: { cutoff: number; label: string; n: number; future: number }[];
   fixtures: { cutoff: number; season: string; corr: number }[];
   bench: { cutoff: number; ratio: number }[];
+}
+
+/** Joueur non évalué, complété avec des valeurs neutres pour l'affichage. */
+export function fromOther([id, name, team, team_id, pos, price, status]: Other): Player {
+  return {
+    id, code: 0, name, full_name: name, team, team_id, pos, price, status,
+    ep: 0, ep_opt: null, ep_x: null, gap: null, ep_gw: null, value: 0, share: 0, minutes: 0, games: 0,
+    conc: null, xgi90: null, xg: 0, xa: 0, goals: 0, assists: 0, points: 0, car_fin: null, luck_g: null,
+    own: 0, net_tr: 0, pen: null, new: false, chance: null,
+    news: "Pas assez de temps de jeu pour être évalué : compté à 0 point.",
+    motif: "minutes", pool: false, g: [], pepite: false, robust: [], next: [], hist: [],
+  };
 }

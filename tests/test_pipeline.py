@@ -136,6 +136,8 @@ def test_end_to_end(api_dir, tmp_path):
         if p["pool"]:
             assert sum(p["g"][:h]) == pytest.approx(p["ep_opt"], abs=0.1)
     assert sum(SQUAD_QUOTA.values()) == 15
+    # tous les joueurs du jeu sont présents, évalués ou non (équipes importées)
+    assert len(res["players"]) + len(res["others"]) == 90
 
     # deuxième passage : tout vient du cache, seules 2 requêtes partent
     assert main(["--replay", api_dir, "--out", out, "--cache", cache,

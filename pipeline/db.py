@@ -139,3 +139,12 @@ def save_copy(con, path):
     disk = sqlite3.connect(path)
     con.backup(disk)
     disk.close()
+
+
+def roster(con):
+    """Tous les joueurs du jeu, évalués ou non (pour les équipes importées)."""
+    return query(con, """
+        SELECT p.id, p.web_name AS name, t.short_name AS team, p.team_id,
+               CASE p.pos_id WHEN 1 THEN 'GK' WHEN 2 THEN 'DEF' WHEN 3 THEN 'MID' ELSE 'FWD' END AS pos,
+               p.now_cost / 10.0 AS price, p.status
+        FROM players p JOIN teams t ON t.id = p.team_id""").set_index("id")

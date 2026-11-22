@@ -77,6 +77,7 @@ export default function Methode() {
             <li><strong>Jeu produit :</strong> les points sont tirés à 60 % vers ce que valent ses xG et xA, plus stables que les buts marqués.</li>
             <li><strong>Calendrier :</strong> chaque match est pondéré par sa difficulté, avec un effet volontairement faible (±7,5 % par niveau).</li>
             <li><strong>Choix des 15 :</strong> un programme linéaire en nombres entiers maximise les points du onze (et un quart de ceux du banc) sous le budget, les quotas par poste et la limite de 3 joueurs par club.</li>
+            <li><strong>Transferts :</strong> à partir d&apos;une équipe importée, le même calcul cherche les achats qui rapportent le plus, en comptant 4 points de pénalité par transfert au-delà des gratuits.</li>
           </ul>
         </section>
 
