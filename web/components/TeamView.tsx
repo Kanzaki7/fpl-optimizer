@@ -13,7 +13,6 @@ interface Props {
   squad: Squad;
   players: Player[];
   meta: Meta;
-  updated: string;
 }
 
 type Role = "C" | "V" | "XI" | "BANC";
@@ -56,7 +55,7 @@ const ROW_Y: Record<Pos, number> = { GK: 11, DEF: 34, MID: 58, FWD: 82 };
 const period = (from: number, to: number) =>
   from === to ? `la journée ${from}` : `les journées ${from} à ${to}`;
 
-export function TeamView({ squad: base, players, meta, updated }: Props) {
+export function TeamView({ squad: base, players, meta }: Props) {
   const { settings: s, isDefault } = useSettings();
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const [open, setOpen] = useState<Player | null>(null);
@@ -105,7 +104,6 @@ export function TeamView({ squad: base, players, meta, updated }: Props) {
       <section className="hero">
         <div className="kicker">
           <span className="tag accent">Saison {meta.season}</span>
-          <span className="tag">Mis à jour le {updated}</span>
         </div>
         <h1>{own ? "Votre équipe" : "L'équipe optimale"} pour {period(s.from, s.to)}</h1>
         <p className="lead">
