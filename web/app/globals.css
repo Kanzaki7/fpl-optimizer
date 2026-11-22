@@ -565,7 +565,21 @@ summary::-webkit-details-marker { display: none; }
 .plan-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
 .btn.small { height: 26px; padding: 0 9px; font-size: 10.5px; }
 .move.sugg, .move.done { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; }
-.move .apply { min-width: 64px; justify-content: center; white-space: nowrap; background: var(--good); border-color: var(--good); color: var(--bg); }
+/* Appliquer : vert du thème en filet, plein au survol */
+.move .apply {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 4px 0 10px; cursor: pointer; white-space: nowrap;
+  font: 500 10.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--good); background: color-mix(in srgb, var(--good) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--good) 55%, transparent); border-radius: var(--r);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.move .apply b {
+  font: 600 11.5px/1 var(--mono); letter-spacing: 0; padding: 4px 6px; border-radius: 2px;
+  background: var(--good); color: var(--bg); transition: background 0.15s, color 0.15s;
+}
+.move .apply:hover:not(:disabled), .move .apply:focus-visible { background: var(--good); border-color: var(--good); color: var(--bg); }
+.move .apply:hover:not(:disabled) b, .move .apply:focus-visible b { background: var(--bg); color: var(--good); }
+.move .apply:active:not(:disabled) { transform: translateY(1px); }
 .move .apply:disabled { opacity: 0.4; cursor: not-allowed; }
 .move .undo { width: 26px; height: 26px; font-size: 15px; }
 .move.done .out .n { text-decoration: line-through; color: var(--ink2); }

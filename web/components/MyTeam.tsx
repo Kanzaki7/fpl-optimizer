@@ -154,10 +154,14 @@ export function MyTeam({ entry, players, byId, meta, s }: Props) {
                         <button className="in" onClick={() => setOpen(pi)}>
                           <span className="k">Acheter</span><span className="n">{pi.name}</span><span className="s">{price(pi.price)} · {num(v(i))} pts</span>
                         </button>
-                        <button type="button" className="btn small apply" onClick={() => replace(o, i)}
+                        <button type="button" className="apply" onClick={() => replace(o, i)}
                           title="Appliquer ce transfert" aria-label={`Appliquer : ${po.name} remplacé par ${pi.name}, ${signed(v(i) - v(o))} points`}
                           disabled={byId.get(i)!.price > bank + byId.get(o)!.price + 1e-9}>
-                          Appliquer {signed(v(i) - v(o))}
+                          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                            <path d="M2 6.4l2.6 2.6L10 3.4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span>Appliquer</span>
+                          <b className="num">{signed(v(i) - v(o))}</b>
                         </button>
                       </li>
                     );
