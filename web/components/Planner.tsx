@@ -28,7 +28,10 @@ export function Planner({ meta, players, entry, entryError, entryLoading }: Prop
 
   // Sur téléphone, les réglages sont repliés derrière un résumé.
   const [open, setOpen] = useState(true);
-  useEffect(() => { if (window.matchMedia("(max-width: 640px)").matches) setOpen(false); }, []);
+  const phone = () => window.matchMedia("(max-width: 640px)").matches;
+  useEffect(() => { if (phone()) setOpen(false); }, []);
+  // une fois l'équipe importée, on replie pour laisser voir le plan
+  useEffect(() => { if (entry && phone()) setOpen(false); }, [entry]);
   const summary = `J${s.from}${span > 1 ? `–${s.to}` : ""} · ` +
     (mine ? (entry ? entry.name : "mon équipe") : price(s.budget)) +
     (s.force.length ? ` · ${s.force.length} imposé${s.force.length > 1 ? "s" : ""}` : "") +

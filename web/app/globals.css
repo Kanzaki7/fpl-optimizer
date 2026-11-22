@@ -519,16 +519,36 @@ summary::-webkit-details-marker { display: none; }
 .pl-field .seg { justify-self: start; }
 
 /* ------------------------------------------------------------ transferts */
-.moves { display: grid; gap: 2px; }
-.move { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.moves { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; }
+.move { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 52px; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.move .k { font: 500 9.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+.move .in .k { color: var(--accent-ink); }
+.move .g { text-align: right; font-size: 13px; color: var(--good); }
 .move:first-child { border-top: 0; }
 .move button { all: unset; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
 .move .n { font: 500 12px/1.2 var(--mono); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .move .s { font: 400 11px/1.2 var(--mono); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .move .out .n { color: var(--ink2); text-decoration: line-through; text-decoration-color: var(--ink3); }
-.move .in { text-align: right; }
+.move .in { text-align: left; }
 .move .arrow { font: 500 13px/1 var(--mono); color: var(--accent-ink); }
 .moves-sum { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13px; }
 .moves-sum dd { margin: 0; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .moves-sum dt { color: var(--ink2); }
-.token .new { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); font: 600 8px/1 var(--mono); letter-spacing: 0.06em; background: var(--accent); color: #fff; padding: 2px 3px; }
+.token .new { position: absolute; top: -10px; left: -16px; font: 600 8px/1 var(--mono); letter-spacing: 0.06em; background: var(--accent); color: #fff; padding: 2px 3px; }
+
+/* ------------------------------------------------------------ plan d'action */
+.empty-state { padding: 28px 22px; margin: 0 0 40px; text-align: center; }
+.empty-state h2 { margin-bottom: 10px; }
+.empty-state p { max-width: 560px; margin: 0 auto 8px; color: var(--ink2); }
+.plan { padding: 18px; margin: 18px 0; }
+.plan-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.plan-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(220px, 0.9fr); gap: 22px; align-items: start; }
+@media (max-width: 980px) { .plan-grid { grid-template-columns: 1fr; gap: 16px; } }
+.plan .moves-sum { margin: 0; padding: 12px 14px; border: 1px solid var(--line-soft); background: var(--bg); }
+.plan-line { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font: 500 13px/1.3 var(--mono); text-transform: uppercase; flex-wrap: wrap; }
+.plan-line .dim { text-transform: none; font-weight: 400; }
+.plan-none { margin: 8px 0 0; color: var(--ink2); }
+@media (max-width: 520px) {
+  .move { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .move .g { grid-column: 1 / -1; text-align: left; font-size: 12px; }
+}

@@ -106,7 +106,7 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
         const ref = !transfers && s.force.length ? (await solve(players, meta, { ...s, force: [] })).ep_xi : null;
         if (live) { setSol(r); setBest(ref); setError(null); }
       } catch (e) {
-        if (live) setError(e instanceof PlanError ? e.message : "Le calcul a échoué. Rechargez la page.");
+        if (live) { setSol(null); setError(e instanceof PlanError ? e.message : "Le calcul a échoué. Rechargez la page."); }
       } finally {
         if (live) setBusy(false);
       }
@@ -131,6 +131,9 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
   const net = moves ? squad.ep_xi - HIT * moves.hits : squad.ep_xi;
   const gain = moves ? (moves.with ?? 0) - HIT * moves.hits - moves.keep : 0;
   const bought = new Set(moves?.in ?? []);
+  // en mode « Mon équipe », on n'affiche une équipe que si elle vient de l'équipe importée
+  const waiting = mine && (!entry || !moves);
+  const unknown = entry ? entry.picks.filter((id) => !byId.has(id)).length : 0;
 
   return (
     <>
@@ -150,10 +153,43 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
 
       <Planner meta={meta} players={players} entry={entry} entryError={entryError} entryLoading={entryLoading} />
 
-      {error ? <div className="notice" role="alert"><span className="label" style={{ color: "var(--bad)" }}>Impossible</span><span>{error}</span></div> : null}
+      {waiting ? (
+        <div className="panel empty-state">
+          {!entry ? (
+            entryLoading ? <p>Import de votre équipe…</p> : entryError ? (
+              <>
+                <h2>Import impossible</h2>
+                <p>{entryError}</p>
+              </>
+            ) : (
+              <>
+                <h2>Importez votre équipe</h2>
+                <p>
+                  Entrez l&apos;identifiant de votre équipe FPL ci-dessus. Il se trouve dans l&apos;adresse de votre page
+                  Points : fantasy.premierleague.com/entry/<b>1234567</b>/event/… Aucun mot de passe n&apos;est demandé :
+                  le site lit seulement votre équipe publique.
+                </p>
+              </>
+            )
+          ) : error ? (
+            <>
+              <h2>Calcul impossible</h2>
+              <p>{error}</p>
+              {unknown ? <p className="hint">{unknown} joueur{unknown > 1 ? "s" : ""} de votre équipe ne figure{unknown > 1 ? "nt" : ""} pas encore dans les données du jour (transfert récent ?).</p> : null}
+            </>
+          ) : <p>Calcul de vos transferts…</p>}
+        </div>
+      ) : null}
 
+      {!waiting && error ? <div className="notice" role="alert"><span className="label" style={{ color: "var(--bad)" }}>Impossible</span><span>{error}</span></div> : null}
+
+      {!waiting ? (
       <div className={`stats ${busy ? "busy" : ""}`} aria-label="Résumé de l'équipe" aria-busy={busy}>
-        <div className="stat"><div className="label">Points attendus</div><div className="v">{num(net)} <small>XI · C ×2</small></div></div>
+        {moves ? (
+          <div className="stat"><div className="label">Points attendus</div><div className="v">{num((moves.with ?? 0) - HIT * moves.hits)} <small>C ×2 · ¼ banc</small></div></div>
+        ) : (
+          <div className="stat"><div className="label">Points attendus</div><div className="v">{num(net)} <small>XI · C ×2</small></div></div>
+        )}
         {moves ? (
           <div className="stat"><div className="label">Gain des transferts</div>
             <div className={`v ${gain > 0.05 ? "pos" : ""}`}>{signed(gain)}</div></div>
@@ -173,7 +209,60 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
         <div className="stat"><div className="label">Formation</div><div className="v">{squad.formation}</div></div>
         <div className="stat"><div className="label">Capitaine</div><div className="v">{cap?.name.toUpperCase()}</div></div>
       </div>
+      ) : null}
 
+      {moves && entry ? (
+        <section className={`panel reticle plan ${busy ? "busy" : ""}`}><span className="rt" />
+          <div className="plan-head">
+            <h2>À faire avant la journée {s.from}</h2>
+            <span className="hint">{entry.name} · équipe de la journée {entry.event}{entry.freehit ? " (avant Free Hit)" : ""}</span>
+          </div>
+          <div className="plan-grid">
+            <div>
+              <div className="label">1 · Transferts</div>
+              {moves.in.length === 0 ? (
+                <p className="plan-none">Aucun : gardez votre équipe{(s.ft ?? entry.ft) > 0 ? " et reportez vos transferts gratuits" : ""}.</p>
+              ) : (
+                <ol className="moves">
+                  {moves.out.map((o, i) => {
+                    const po = byId.get(o)!, pi = byId.get(moves.in[i])!;
+                    return (
+                      <li key={o} className="move">
+                        <button className="out" onClick={() => setOpen(po)}>
+                          <span className="k">Vendre</span><span className="n">{po.name}</span><span className="s">{po.team} · {price(po.price)} · {num(value(o))} pts</span>
+                        </button>
+                        <span className="arrow" aria-label="remplacé par">→</span>
+                        <button className="in" onClick={() => setOpen(pi)}>
+                          <span className="k">Acheter</span><span className="n">{pi.name}</span><span className="s">{pi.team} · {price(pi.price)} · {num(value(pi.id))} pts</span>
+                        </button>
+                        <span className="g num">{signed(value(pi.id) - value(o))}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+            <div>
+              <div className="label">2 · Brassard</div>
+              <p className="plan-line"><span className="badge-c" style={{ position: "static" }}>C</span> {cap.name} <span className="dim">· vice {vice.name}</span></p>
+              <div className="label" style={{ marginTop: 14 }}>3 · Composition</div>
+              <p className="plan-line" style={{ textTransform: "none", fontWeight: 400, fontFamily: "var(--sans)" }}>{squad.formation} : titulaires et banc comme sur le terrain ci-dessous.</p>
+            </div>
+            <dl className="moves-sum">
+              <dt>Sans transfert</dt><dd>{num(moves.keep)} pts</dd>
+              <dt>Avec ces transferts</dt><dd>{num(moves.with)} pts</dd>
+              {moves.hits ? <><dt>Pénalité ({moves.hits} × {HIT})</dt><dd>−{HIT * moves.hits} pts</dd></> : null}
+              <dt><b>Gain net</b></dt><dd><b>{signed(gain)} pts</b></dd>
+            </dl>
+          </div>
+          <p className="hint" style={{ margin: "12px 0 0" }}>
+            Points attendus sur {period(s.from, s.to)} : onze avec capitaine doublé, plus un quart du banc. Les transferts
+            déjà faits depuis la dernière date limite ne sont pas visibles ; prix de revente estimés au prix actuel.
+          </p>
+        </section>
+      ) : null}
+
+      {waiting ? null : (
       <div className={`team-layout ${busy ? "busy" : ""}`}>
         <div className="panel reticle pitch-frame">
           <span className="rt" />
@@ -198,41 +287,7 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
         </div>
 
         <div className="side">
-          {moves ? (
-            <section className="panel reticle card"><span className="rt" />
-              <h2>Transferts conseillés</h2>
-              {moves.in.length === 0 ? (
-                <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
-                  Gardez votre équipe : aucun transfert ne rapporte assez sur cette période{entry && entry.ft > 1 ? " (vos transferts gratuits se reportent)" : ""}.
-                </p>
-              ) : (
-                <div className="moves">
-                  {moves.out.map((o, i) => {
-                    const po = byId.get(o)!, pi = byId.get(moves.in[i])!;
-                    return (
-                      <div key={o} className="move">
-                        <button className="out" onClick={() => setOpen(po)}><span className="n">{po.name}</span><span className="s">{price(po.price)} · {num(value(o))} pts</span></button>
-                        <span className="arrow" aria-label="remplacé par">→</span>
-                        <button className="in" onClick={() => setOpen(pi)}><span className="n">{pi.name}</span><span className="s">{price(pi.price)} · {num(value(pi.id))} pts</span></button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <dl className="moves-sum">
-                <dt>Sans transfert</dt><dd>{num(moves.keep)} pts</dd>
-                <dt>Avec ces transferts</dt><dd>{num(moves.with)} pts</dd>
-                {moves.hits ? <><dt>Pénalité</dt><dd>−{HIT * moves.hits} pts</dd></> : null}
-                <dt><b>Gain net</b></dt><dd><b>{signed(gain)} pts</b></dd>
-              </dl>
-              <p className="hint" style={{ margin: "8px 0 0" }}>Onze avec capitaine doublé, plus un quart des points du banc (remplacements automatiques).</p>
-              <p className="hint" style={{ margin: "10px 0 0" }}>
-                Équipe de la journée {entry!.event}{entry!.freehit ? " (avant Free Hit)" : ""}. Les transferts déjà faits pour la prochaine journée ne sont pas visibles avant sa date limite ; prix de revente estimés au prix actuel.
-              </p>
-            </section>
-          ) : null}
-
-          <section className="panel card">
+          {moves ? null : <section className="panel card">
             <h2>Brassard</h2>
             <button className="list-btn" onClick={() => setOpen(cap)}>
               <span className="badge-c" style={{ position: "static" }}>C</span>
@@ -244,7 +299,7 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
               <span><span className="n">{vice.name}</span><br /><span className="s">{vice.team} · {num(value(vice.id))} pts attendus</span></span>
               <span className="label">si C absent</span>
             </button>
-          </section>
+          </section>}
 
           <section className="panel card">
             <h2>Meilleure valeur du XI</h2>
@@ -281,6 +336,7 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
           </div>
         </div>
       </div>
+      )}
 
       {open ? <PlayerSheet player={open} meta={meta}
         role={squad.xi.includes(open.id) || squad.bench.includes(open.id) ? role(open.id) : null} onClose={close} /> : null}
