@@ -35,9 +35,9 @@ class FplApiError(RuntimeError):
 
 
 class FplClient:
-    def __init__(self, base=BASE_URL, replay_dir=None, workers=4, timeout=20,
+    def __init__(self, base=None, replay_dir=None, workers=4, timeout=20,
                  retries=5, backoff=1.5):
-        self.base = base.rstrip("/")
+        self.base = (base or os.environ.get("FPL_API_BASE") or BASE_URL).rstrip("/")
         self.replay_dir = replay_dir
         self.workers = workers
         self.timeout = timeout
@@ -196,3 +196,42 @@ def gameweek_stats(client, events, season, cache_dir):
     log.info("Journées : %d terminée(s), %d téléchargée(s), %d en cache",
              len(done), fetched, len(done) - fetched)
     return rows
+
+
+def free_transfers(history, chips):
+    """
+    Transferts gratuits disponibles avant la prochaine journée, d'après
+    l'historique public d'une équipe : 1 par journée après la première,
+    report jusqu'à 5 ; le joker et le Free Hit n'en consomment pas.
+    (Même règle que web/lib/entry.ts.)
+    """
+    chip_at = {c["event"]: c["name"] for c in chips}
+    ft = None
+    for h in sorted(history, key=lambda h: h["event"]):
+        if ft is None:
+            ft = 1
+            continue
+        if chip_at.get(h["event"]) in ("wildcard", "freehit"):
+            ft = min(5, ft + 1)
+        else:
+            ft = min(5, max(0, ft - h["event_transfers"]) + 1)
+    return 1 if ft is None else ft
+
+
+def entry_team(client, entry_id):
+    """Équipe publique d'un joueur FPL : nom, joueurs, banque, transferts gratuits."""
+    entry = client.get(f"entry/{entry_id}")
+    history = client.get(f"entry/{entry_id}/history")
+    event = entry.get("current_event")
+    if not event:
+        raise FplApiError(f"équipe {entry_id} : aucune journée jouée")
+    picks = client.get(f"entry/{entry_id}/event/{event}/picks")
+    if picks.get("active_chip") == "freehit" and event > 1:
+        event -= 1
+        picks = client.get(f"entry/{entry_id}/event/{event}/picks")
+    return {
+        "id": entry["id"], "name": entry["name"], "event": event,
+        "picks": [p["element"] for p in picks["picks"]],
+        "bank": picks["entry_history"]["bank"] / 10,
+        "ft": free_transfers(history.get("current", []), history.get("chips", [])),
+    }

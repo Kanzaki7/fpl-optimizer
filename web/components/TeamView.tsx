@@ -17,12 +17,13 @@ interface Props {
   players: Player[];
   others: Other[];
   meta: Meta;
+  alerts: boolean;
 }
 
 const period = (from: number, to: number) =>
   from === to ? `la journée ${from}` : `les journées ${from} à ${to}`;
 
-export function TeamView({ squad: base, players: evaluated, others, meta }: Props) {
+export function TeamView({ squad: base, players: evaluated, others, meta, alerts }: Props) {
   const { settings: s, isDefault } = useSettings();
   // les joueurs non évalués servent aux équipes importées (comptés à 0 point)
   const players = useMemo(() => [...evaluated, ...others.map(fromOther)], [evaluated, others]);
@@ -75,7 +76,7 @@ export function TeamView({ squad: base, players: evaluated, others, meta }: Prop
               <h2>Équipe incomplète</h2>
               <p>Un joueur de votre équipe ne figure pas encore dans les données du jour (transfert récent ?). Réessayez après la prochaine mise à jour, demain matin.</p>
             </div>
-          ) : <MyTeam entry={entry} players={players} byId={byId} meta={meta} s={s} />
+          ) : <MyTeam entry={entry} players={players} byId={byId} meta={meta} s={s} alerts={alerts} />
         ) : (
           <div className="panel empty-state">
             {entryLoading ? <p>Import de votre équipe…</p> : entryError ? (

@@ -103,6 +103,7 @@ def run(args):
             "w_rate": round(info["w_rate"], 2), "w_share": round(info["w_share"], 2),
             "stability_horizons": list(STABILITY_HORIZONS),
             "gws": list(range(next_gw, next_gw + n_gw)),
+            "deadline": next((e.get("deadline_time") for e in events if e["id"] == next_gw), None),
             "bench_weight": BENCH_WEIGHT,
             "source": "replay" if args.replay else "api", "api_calls": client.calls}
     payload = export.build_payload(df, pool, motifs, lineup, stability, ctx, per_gw,

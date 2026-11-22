@@ -9,6 +9,11 @@ on:
     branches: [main]
     paths: ["pipeline/**"]
   workflow_dispatch:
+    inputs:
+      notify_now:
+        description: "Envoyer les alertes e-mail maintenant (test)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,6 +36,7 @@ jobs:
       - name: Tests
         run: python -m pytest -q
       - name: Pipeline
+        id: pipeline
         run: python -m pipeline
       - name: Commit des données
         run: |
@@ -43,3 +49,15 @@ jobs:
             git commit -m "Données : mise à jour du $(date -u +%Y-%m-%d)"
             git push
           fi
+      # la veille de chaque date limite (ou sur demande) : transferts conseillés
+      # par e-mail ; un échec ici n'empêche jamais la mise à jour des données
+      - name: Alertes e-mail
+        if: steps.pipeline.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_URL: https://fpl-optimizer-beta.vercel.app
+        run: python -m pipeline.notify ${{ inputs.notify_now && '--force' || '' }}

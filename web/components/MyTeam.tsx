@@ -9,6 +9,7 @@ import { Pitch } from "./Pitch";
 import { PlayerSheet } from "./PlayerSheet";
 import { ReplaceList, type Candidate } from "./ReplaceList";
 import { Shape } from "./Shape";
+import { AlertSignup } from "./AlertSignup";
 
 interface Props {
   entry: Entry;
@@ -16,6 +17,7 @@ interface Props {
   byId: Map<number, Player>;
   meta: Meta;
   s: Settings;
+  alerts: boolean;
 }
 
 const r1 = (x: number) => Math.round(x * 10) / 10;
@@ -25,7 +27,7 @@ const r1 = (x: number) => Math.round(x * 10) / 10;
  * suggestions du solveur s'appliquent d'un clic, et chaque joueur peut être
  * remplacé à la main. Budget, transferts, pénalité et points suivent.
  */
-export function MyTeam({ entry, players, byId, meta, s }: Props) {
+export function MyTeam({ entry, players, byId, meta, s, alerts }: Props) {
   const original = useMemo(() => entry.picks.filter((id) => byId.has(id)), [entry, byId]);
   const key = `fpl-brouillon-${entry.id}-${entry.event}`;
 
@@ -222,6 +224,7 @@ export function MyTeam({ entry, players, byId, meta, s }: Props) {
           mark={(id) => (buyIds.has(id) ? "buy" : sellIds.has(id) ? "sell" : undefined)}
           selected={open?.id} onOpen={setOpen} />
         <div className="side">
+          {alerts ? <AlertSignup entry={entry.id} /> : null}
           <section className="panel card legend-card">
             <h2>Lecture</h2>
             <p><span className="mark sell static">VENDRE</span> vente conseillée par le modèle</p>

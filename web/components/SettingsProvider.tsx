@@ -23,6 +23,17 @@ export function SettingsProvider({ meta, children }: { meta: Meta; children: Rea
   const [settings, setSettings] = useState<Settings>(base);
 
   useEffect(() => {
+    // lien depuis l'e-mail d'alerte : /?equipe=1234567 ouvre « Mon équipe »
+    const fromLink = Number(new URLSearchParams(window.location.search).get("equipe"));
+    if (Number.isInteger(fromLink) && fromLink > 0) {
+      setSettings((cur) => {
+        const next = { ...cur, mode: "mine" as const, entry: fromLink };
+        try { localStorage.setItem(KEY, JSON.stringify({ ...next, gw0: meta.gws[0] })); } catch {}
+        return next;
+      });
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) || "null");
       if (!saved) return;

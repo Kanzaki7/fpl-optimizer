@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Données : API publique de Fantasy Premier League. Projet personnel, sans lien avec la Premier League.
             </span>
             <span>
-              <a href={REPO}>Code source</a> · Python, SQL, PuLP, Next.js
+              <a href={REPO}>Code source</a> · <Link href="/confidentialite">Confidentialité</Link> · Python, SQL, PuLP, Next.js
             </span>
           </div>
         </footer>

@@ -13,3 +13,4 @@ web/*.tsbuildinfo
 .env*
 .DS_Store
 web/public/solver/
+!.env.example

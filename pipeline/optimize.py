@@ -29,8 +29,14 @@ def _solver():
     raise RuntimeError("Aucun solveur : pip install highspy (ou \"pulp<4\" pour CBC)")
 
 
-def optimize_squad(df, budget=100.0, bench_weight=BENCH_WEIGHT, force=(), exclude=()):
-    """Renvoie (ids des 15, ids du XI)."""
+def optimize_squad(df, budget=100.0, bench_weight=BENCH_WEIGHT, force=(), exclude=(), current=None):
+    """
+    Renvoie (ids des 15, ids du XI).
+
+    current : None, ou dict(picks=[...], ft=int, max_transfers=int, hit=4) pour
+    chercher les meilleurs transferts à partir d'une équipe existante. Chaque
+    achat au-delà des transferts gratuits coûte `hit` points.
+    """
     df = df[~df.index.isin(list(exclude))]
     ids = df.index.tolist()
     prob = pulp.LpProblem("FPL", pulp.LpMaximize)
@@ -45,7 +51,17 @@ def optimize_squad(df, budget=100.0, bench_weight=BENCH_WEIGHT, force=(), exclud
     ep, price = df["ep"].to_dict(), df["price"].to_dict()
     pos, club = df["pos_id"].to_dict(), df["team_id"].to_dict()
 
-    prob += pulp.lpSum(xi[i] * ep[i] + (squad[i] - xi[i]) * ep[i] * bench_weight for i in ids)
+    objective = pulp.lpSum(xi[i] * ep[i] + (squad[i] - xi[i]) * ep[i] * bench_weight for i in ids)
+    if current:
+        if hasattr(prob, "add_variable"):
+            pen = prob.add_variable("pen", lowBound=0, upBound=15, cat="Integer")
+        else:
+            pen = pulp.LpVariable("pen", lowBound=0, upBound=15, cat="Integer")
+        buys = pulp.lpSum(squad[i] for i in ids if i not in set(current["picks"]))
+        prob += buys - pen <= current["ft"]
+        prob += buys <= current.get("max_transfers", 15)
+        objective -= current.get("hit", 4) * pen
+    prob += objective
     prob += pulp.lpSum(squad[i] * price[i] for i in ids) <= budget
     prob += pulp.lpSum(xi.values()) == 11
     for i in ids:
