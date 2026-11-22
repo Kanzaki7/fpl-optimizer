@@ -22,6 +22,10 @@ async function rest(method: string, query: string, body?: object): Promise<Subsc
   const res = await fetch(`${process.env.SUPABASE_URL!.replace(/\/$/, "")}/rest/v1/subscribers?${query}`, {
     method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store",
   });
+  if (!(res.headers.get("content-type") ?? "").includes("json")) {
+    // une page HTML : l'adresse est celle du tableau de bord, pas celle de l'API
+    throw new Error("SUPABASE_URL ne pointe pas vers l'API : elle doit être de la forme https://<projet>.supabase.co");
+  }
   if (!res.ok) throw new Error(`Supabase ${res.status} : ${await res.text()}`);
   return res.status === 204 ? [] : res.json();
 }
