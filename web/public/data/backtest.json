@@ -1,0 +1,511 @@
+{
+ "seasons": [
+  "2023-24",
+  "2024-25"
+ ],
+ "cutoffs": [
+  5,
+  10,
+  20
+ ],
+ "horizon": 8,
+ "generated": "2026-11-22",
+ "indicators": [
+  {
+   "cutoff": 5,
+   "label": "prix",
+   "corr": 0.411,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "part de minutes",
+   "corr": 0.395,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "xGI/90",
+   "corr": 0.287,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "points/90",
+   "corr": 0.286,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "points attendus/90",
+   "corr": 0.281,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "gap (attendu - réel)",
+   "corr": -0.173,
+   "n": 626
+  },
+  {
+   "cutoff": 5,
+   "label": "concentration",
+   "corr": -0.278,
+   "n": 625
+  },
+  {
+   "cutoff": 10,
+   "label": "part de minutes",
+   "corr": 0.422,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "prix",
+   "corr": 0.332,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "xGI/90",
+   "corr": 0.236,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "points/90",
+   "corr": 0.235,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "points attendus/90",
+   "corr": 0.231,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "gap (attendu - réel)",
+   "corr": -0.143,
+   "n": 746
+  },
+  {
+   "cutoff": 10,
+   "label": "concentration",
+   "corr": -0.365,
+   "n": 745
+  },
+  {
+   "cutoff": 20,
+   "label": "part de minutes",
+   "corr": 0.553,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "prix",
+   "corr": 0.388,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "xGI/90",
+   "corr": 0.244,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "points attendus/90",
+   "corr": 0.241,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "points/90",
+   "corr": 0.224,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "gap (attendu - réel)",
+   "corr": -0.139,
+   "n": 866
+  },
+  {
+   "cutoff": 20,
+   "label": "concentration",
+   "corr": -0.499,
+   "n": 860
+  }
+ ],
+ "blend": [
+  {
+   "cutoff": 5,
+   "w": 0.0,
+   "corr": 0.286
+  },
+  {
+   "cutoff": 5,
+   "w": 0.2,
+   "corr": 0.3
+  },
+  {
+   "cutoff": 5,
+   "w": 0.4,
+   "corr": 0.313
+  },
+  {
+   "cutoff": 5,
+   "w": 0.5,
+   "corr": 0.318
+  },
+  {
+   "cutoff": 5,
+   "w": 0.6,
+   "corr": 0.321
+  },
+  {
+   "cutoff": 5,
+   "w": 0.7,
+   "corr": 0.323
+  },
+  {
+   "cutoff": 5,
+   "w": 0.8,
+   "corr": 0.322
+  },
+  {
+   "cutoff": 5,
+   "w": 1.0,
+   "corr": 0.281
+  },
+  {
+   "cutoff": 10,
+   "w": 0.0,
+   "corr": 0.235
+  },
+  {
+   "cutoff": 10,
+   "w": 0.2,
+   "corr": 0.244
+  },
+  {
+   "cutoff": 10,
+   "w": 0.4,
+   "corr": 0.253
+  },
+  {
+   "cutoff": 10,
+   "w": 0.5,
+   "corr": 0.256
+  },
+  {
+   "cutoff": 10,
+   "w": 0.6,
+   "corr": 0.261
+  },
+  {
+   "cutoff": 10,
+   "w": 0.7,
+   "corr": 0.263
+  },
+  {
+   "cutoff": 10,
+   "w": 0.8,
+   "corr": 0.26
+  },
+  {
+   "cutoff": 10,
+   "w": 1.0,
+   "corr": 0.231
+  },
+  {
+   "cutoff": 20,
+   "w": 0.0,
+   "corr": 0.224
+  },
+  {
+   "cutoff": 20,
+   "w": 0.2,
+   "corr": 0.233
+  },
+  {
+   "cutoff": 20,
+   "w": 0.4,
+   "corr": 0.243
+  },
+  {
+   "cutoff": 20,
+   "w": 0.5,
+   "corr": 0.248
+  },
+  {
+   "cutoff": 20,
+   "w": 0.6,
+   "corr": 0.253
+  },
+  {
+   "cutoff": 20,
+   "w": 0.7,
+   "corr": 0.257
+  },
+  {
+   "cutoff": 20,
+   "w": 0.8,
+   "corr": 0.257
+  },
+  {
+   "cutoff": 20,
+   "w": 1.0,
+   "corr": 0.241
+  }
+ ],
+ "filters": [
+  {
+   "cutoff": 5,
+   "label": "share < 0.78 (écartés : minutes)",
+   "n": 347,
+   "future": 13.8
+  },
+  {
+   "cutoff": 5,
+   "label": "share >= 0.78 (retenus)",
+   "n": 279,
+   "future": 22.3
+  },
+  {
+   "cutoff": 5,
+   "label": "gap90 < -1.0, MID/FWD (écartés : surchauffe)",
+   "n": 130,
+   "future": 22.8
+  },
+  {
+   "cutoff": 5,
+   "label": "gap90 >= -1.0, MID/FWD (retenus)",
+   "n": 217,
+   "future": 17.9
+  },
+  {
+   "cutoff": 5,
+   "label": "conc > 0.60 (production concentrée)",
+   "n": 188,
+   "future": 13.0
+  },
+  {
+   "cutoff": 5,
+   "label": "conc <= 0.60 (régulière)",
+   "n": 437,
+   "future": 19.6
+  },
+  {
+   "cutoff": 10,
+   "label": "share < 0.78 (écartés : minutes)",
+   "n": 497,
+   "future": 13.7
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.78 (retenus)",
+   "n": 249,
+   "future": 20.7
+  },
+  {
+   "cutoff": 10,
+   "label": "gap90 < -1.0, MID/FWD (écartés : surchauffe)",
+   "n": 167,
+   "future": 19.3
+  },
+  {
+   "cutoff": 10,
+   "label": "gap90 >= -1.0, MID/FWD (retenus)",
+   "n": 257,
+   "future": 16.3
+  },
+  {
+   "cutoff": 10,
+   "label": "conc > 0.60 (production concentrée)",
+   "n": 121,
+   "future": 8.2
+  },
+  {
+   "cutoff": 10,
+   "label": "conc <= 0.60 (régulière)",
+   "n": 624,
+   "future": 17.6
+  },
+  {
+   "cutoff": 20,
+   "label": "share < 0.78 (écartés : minutes)",
+   "n": 668,
+   "future": 11.7
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.78 (retenus)",
+   "n": 198,
+   "future": 24.4
+  },
+  {
+   "cutoff": 20,
+   "label": "gap90 < -1.0, MID/FWD (écartés : surchauffe)",
+   "n": 214,
+   "future": 17.0
+  },
+  {
+   "cutoff": 20,
+   "label": "gap90 >= -1.0, MID/FWD (retenus)",
+   "n": 273,
+   "future": 15.7
+  },
+  {
+   "cutoff": 20,
+   "label": "conc > 0.60 (production concentrée)",
+   "n": 79,
+   "future": 6.4
+  },
+  {
+   "cutoff": 20,
+   "label": "conc <= 0.60 (régulière)",
+   "n": 781,
+   "future": 15.5
+  }
+ ],
+ "share_thresholds": [
+  {
+   "cutoff": 5,
+   "label": "share >= 0.60",
+   "n": 393,
+   "future": 21.0
+  },
+  {
+   "cutoff": 5,
+   "label": "share >= 0.70",
+   "n": 326,
+   "future": 21.7
+  },
+  {
+   "cutoff": 5,
+   "label": "share >= 0.78",
+   "n": 279,
+   "future": 22.3
+  },
+  {
+   "cutoff": 5,
+   "label": "share >= 0.85",
+   "n": 230,
+   "future": 22.9
+  },
+  {
+   "cutoff": 5,
+   "label": "share >= 0.92",
+   "n": 192,
+   "future": 22.2
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.60",
+   "n": 368,
+   "future": 20.5
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.70",
+   "n": 305,
+   "future": 20.5
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.78",
+   "n": 249,
+   "future": 20.7
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.85",
+   "n": 205,
+   "future": 21.5
+  },
+  {
+   "cutoff": 10,
+   "label": "share >= 0.92",
+   "n": 134,
+   "future": 22.5
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.60",
+   "n": 352,
+   "future": 21.9
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.70",
+   "n": 261,
+   "future": 22.9
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.78",
+   "n": 198,
+   "future": 24.4
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.85",
+   "n": 135,
+   "future": 26.1
+  },
+  {
+   "cutoff": 20,
+   "label": "share >= 0.92",
+   "n": 79,
+   "future": 27.7
+  }
+ ],
+ "fixtures": [
+  {
+   "cutoff": 5,
+   "season": "2023-24",
+   "corr": 0.012
+  },
+  {
+   "cutoff": 5,
+   "season": "2024-25",
+   "corr": 0.076
+  },
+  {
+   "cutoff": 10,
+   "season": "2023-24",
+   "corr": -0.004
+  },
+  {
+   "cutoff": 10,
+   "season": "2024-25",
+   "corr": 0.014
+  },
+  {
+   "cutoff": 20,
+   "season": "2023-24",
+   "corr": 0.067
+  },
+  {
+   "cutoff": 20,
+   "season": "2024-25",
+   "corr": 0.052
+  }
+ ],
+ "bench": [
+  {
+   "cutoff": 5,
+   "ratio": 0.283
+  },
+  {
+   "cutoff": 10,
+   "ratio": 0.291
+  },
+  {
+   "cutoff": 20,
+   "ratio": 0.294
+  }
+ ]
+}

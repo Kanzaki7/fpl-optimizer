@@ -1,0 +1,67 @@
+{
+ "season": "2025/26",
+ "horizon": 8,
+ "budget": 100.0,
+ "generated": "2026-11-22",
+ "rows": [
+  {
+   "cutoff": 5,
+   "gws": "6-13",
+   "model": 417,
+   "popular": 348,
+   "hindsight": 620,
+   "captain": "Haaland",
+   "formation": "3-5-2"
+  },
+  {
+   "cutoff": 10,
+   "gws": "11-18",
+   "model": 367,
+   "popular": 352,
+   "hindsight": 642,
+   "captain": "Haaland",
+   "formation": "4-4-2"
+  },
+  {
+   "cutoff": 15,
+   "gws": "16-23",
+   "model": 377,
+   "popular": 389,
+   "hindsight": 586,
+   "captain": "Haaland",
+   "formation": "3-5-2"
+  },
+  {
+   "cutoff": 20,
+   "gws": "21-28",
+   "model": 427,
+   "popular": 407,
+   "hindsight": 602,
+   "captain": "Haaland",
+   "formation": "3-4-3"
+  },
+  {
+   "cutoff": 25,
+   "gws": "26-33",
+   "model": 437,
+   "popular": 416,
+   "hindsight": 637,
+   "captain": "Haaland",
+   "formation": "4-4-2"
+  },
+  {
+   "cutoff": 30,
+   "gws": "31-38",
+   "model": 502,
+   "popular": 393,
+   "hindsight": 618,
+   "captain": "B.Fernandes",
+   "formation": "4-4-2"
+  }
+ ],
+ "total": {
+  "model": 2527,
+  "popular": 2305,
+  "hindsight": 3705
+ }
+}

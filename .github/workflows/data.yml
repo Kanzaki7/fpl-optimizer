@@ -1,0 +1,42 @@
+# Chaque matin : collecte des données FPL, modèle, optimisation, puis commit
+# des fichiers du site. Le commit déclenche le déploiement Vercel.
+name: Données quotidiennes
+
+on:
+  schedule:
+    - cron: "17 5 * * *"   # 5 h 17 UTC, après les changements de prix de la nuit
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest -q
+      - name: Pipeline
+        run: python -m pipeline
+      - name: Commit des données
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data data/cache
+          if git diff --staged --quiet; then
+            echo "Aucune donnée nouvelle."
+          else
+            git commit -m "Données : mise à jour du $(date -u +%Y-%m-%d)"
+            git push
+          fi
