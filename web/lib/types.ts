@@ -39,6 +39,10 @@ export interface Player {
   chance: number | null;
   news: string;
   motif: string | null;
+  /** dans le pool d'optimisation (temps de jeu suffisant) */
+  pool: boolean;
+  /** valeur d'optimisation par journée, alignée sur meta.gws */
+  g: number[];
   pepite: boolean;
   robust: number[];
   next: Fixture[];
@@ -76,6 +80,8 @@ export interface Meta {
   w_rate: number;
   w_share: number;
   stability_horizons: number[];
+  gws: number[];
+  bench_weight: number;
   source: "api" | "replay";
   api_calls: number;
   generated_at: string;

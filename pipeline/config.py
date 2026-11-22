@@ -46,5 +46,6 @@ REGRESSION_BLEND = 0.60    # backtest : optimum vers 0,7 aux trois coupures
 
 BENCH_WEIGHT = 0.25        # backtest : banc / XI = 0,28
 DEFAULT_HORIZON = 8
+GW_WINDOW = 10             # journées exportées pour les calculs du site
 DEFAULT_BUDGET = 100.0
 STABILITY_HORIZONS = (4, 6, 8)

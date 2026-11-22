@@ -1,10 +1,13 @@
-# Chaque matin : collecte des données FPL, modèle, optimisation, puis commit
-# des fichiers du site. Le commit déclenche le déploiement Vercel.
+# Chaque matin, et à chaque changement du modèle : collecte des données FPL,
+# modèle, optimisation, puis commit des fichiers du site (redéploiement Vercel).
 name: Données quotidiennes
 
 on:
   schedule:
     - cron: "17 5 * * *"   # 5 h 17 UTC, après les changements de prix de la nuit
+  push:
+    branches: [main]
+    paths: ["pipeline/**"]
   workflow_dispatch:
 
 permissions:

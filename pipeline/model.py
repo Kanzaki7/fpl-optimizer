@@ -176,6 +176,48 @@ def expected_points(f, ctx):
     return f[f["ep"] > 0]
 
 
+def _blend(pos_id, ep, ep_x, gap):
+    """Valeur d'optimisation : EP tiré vers le jeu produit (voir judgment_pool)."""
+    has_x = ep_x.notna()
+    adj = (pos_id.isin([3, 4]) & has_x) | ((pos_id == 2) & has_x & (gap > 0))
+    out = ep.copy()
+    out[adj] = (1 - REGRESSION_BLEND) * ep[adj] + REGRESSION_BLEND * ep_x[adj]
+    return out
+
+
+def gameweek_points(con, f, teams_df, first, n):
+    """
+    Valeur d'optimisation de chaque joueur, journée par journée, de `first` à
+    `first + n - 1`. Le site additionne ces colonnes pour la période choisie
+    par l'utilisateur et relance le solveur dans le navigateur.
+
+    Même modèle que expected_points, mais match par match : chaque rencontre
+    a son propre facteur de difficulté et sa probabilité de clean sheet. Une
+    journée sans match vaut 0, une double journée compte deux matchs.
+    """
+    gws = list(range(first, first + n))
+    fx = db.gw_fixtures(con, first, first + n - 1)
+    strength = (teams_df["strength_defence_home"] + teams_df["strength_defence_away"]) / 2
+    base_cs = CS_BASE + (strength - strength.mean()) / 100 * CS_SLOPE
+    fx["factor"] = 1.0 + (3.0 - fx["fdr"]) * FDR_COEF
+    fx["cs"] = (fx["team_id"].map(base_cs) * fx["factor"]).clip(CS_MIN, CS_MAX)
+    grid = pd.MultiIndex.from_product([teams_df.index, gws], names=["team_id", "gw"])
+    agg = fx.groupby(["team_id", "gw"])[["factor", "cs"]].sum().reindex(grid, fill_value=0.0)
+    F = agg["factor"].unstack().loc[f["team_id"]].set_axis(f.index)
+    C = agg["cs"].unstack().loc[f["team_id"]].set_axis(f.index)
+
+    share, pos = f["share"], f["pos_id"]
+    pen = pen_bonus(f["pen_order"])
+    cs_pts = pos.map(CS_POINTS) * share
+    non_cs = (f["non_cs_pp90"] + np.where(pos == 3, f["cs_per90"] * 3, 0.0) + pen) * share
+    att = (f["xg90"] * pos.map(GOAL_PTS) + f["xa90"] * ASSIST_PTS + pen + APPEARANCE_PTS) * share
+    ep = F.mul(non_cs, axis=0) + C.mul(cs_pts, axis=0)
+    ep_x = (F.mul(att, axis=0) + C.mul(cs_pts, axis=0)).where(f["xgi90"].notna(), axis=0)
+    # le signe de l'écart ne dépend pas du match : on le lit sur la somme
+    gap = ep_x.sum(axis=1, min_count=1) - ep.sum(axis=1)
+    return pd.DataFrame({g: _blend(pos, ep[g], ep_x[g], gap) for g in gws})
+
+
 def judgment_pool(df):
     """
     Pool d'optimisation : écarte les non-titulaires francs (et la règle
@@ -191,9 +233,5 @@ def judgment_pool(df):
 
     pool = df[reason == ""].copy()
     pool["ep_brut"] = pool["ep"]
-    has_x = pool["ep_x"].notna()
-    adj = (pool["pos_id"].isin([3, 4]) & has_x) | (
-        (pool["pos_id"] == 2) & has_x & (pool["gap"] > 0))
-    pool.loc[adj, "ep"] = ((1 - REGRESSION_BLEND) * pool.loc[adj, "ep_brut"]
-                           + REGRESSION_BLEND * pool.loc[adj, "ep_x"])
+    pool["ep"] = _blend(pool["pos_id"], pool["ep"], pool["ep_x"], pool["gap"])
     return pool, reason[reason != ""]

@@ -14,22 +14,32 @@ function read<T>(file: string): T | null {
 }
 
 /**
- * Données lues à la compilation : le pipeline (GitHub Actions) écrit
- * latest.json puis Vercel reconstruit le site. Sans données réelles, on
- * affiche la démonstration rejouée sur la saison 2025/26.
+ * Données lues à la compilation : chaque matin, le pipeline (GitHub Actions)
+ * écrit latest.json, puis Vercel reconstruit le site.
  */
-export function getData(): { data: Payload; demo: boolean } {
-  const latest = read<Payload>("latest.json");
-  if (latest && latest.meta.source === "api") return { data: latest, demo: false };
-  const demo = read<Payload>("demo.json");
-  if (!demo) throw new Error("Aucune donnée : lancez python -m pipeline");
-  return { data: demo, demo: true };
+export function getData(): Payload {
+  const data = read<Payload>("latest.json");
+  if (!data) throw new Error("web/public/data/latest.json manquant : lancez python -m pipeline");
+  return upgrade(data);
 }
 
-/** CSV complet de la même exécution que les données affichées. */
-export function csvHref(demo: boolean) {
-  const file = demo ? "demo.csv" : "fpl_expected_points.csv";
-  return fs.existsSync(path.join(DIR, file)) ? `/data/${file}` : null;
+/**
+ * Données produites avant la v4.1 (sans valeurs par journée) : on répartit la
+ * valeur sur l'horizon pour que le site reste utilisable jusqu'au prochain
+ * passage du pipeline.
+ */
+function upgrade(d: Payload): Payload {
+  if (d.meta.gws?.length) return d;
+  const h = d.meta.horizon;
+  d.meta.gws = Array.from({ length: h }, (_, i) => d.meta.next_gw + i);
+  d.meta.bench_weight = 0.25;
+  for (const p of d.players) {
+    p.pool = p.ep_opt != null;
+    p.g = Array(h).fill(Math.round(((p.ep_opt ?? p.ep) / h) * 100) / 100);
+  }
+  return d;
 }
+
+export const CSV_HREF = "/data/fpl_expected_points.csv";
 export const getPipelineBacktest = () => read<PipelineBacktest>("pipeline_backtest.json");
 export const getIndicatorBacktest = () => read<IndicatorBacktest>("backtest.json");

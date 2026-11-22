@@ -16,7 +16,7 @@ import time
 import pandas as pd
 
 from . import api, db, export, model, optimize
-from .config import (DEFAULT_BUDGET, DEFAULT_HORIZON, MIN_PAST_MINUTES,
+from .config import (BENCH_WEIGHT, DEFAULT_BUDGET, DEFAULT_HORIZON, GW_WINDOW, MIN_PAST_MINUTES,
                      STABILITY_HORIZONS)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,7 +69,18 @@ def run(args):
              info["gw_played"], info["w_rate"] * 100, info["w_share"] * 100)
     log.info("%d joueurs évalués, %d dans le pool d'optimisation", len(df), len(pool))
 
-    # 4. Optimisation, puis stabilité selon l'horizon
+    # 4. Valeurs d'optimisation journée par journée. Le solveur et le site
+    #    additionnent les mêmes colonnes : mêmes réglages, même équipe.
+    last_gw = max((e["id"] for e in events), default=38)
+    n_gw = max(1, min(max(GW_WINDOW, args.horizon), last_gw - next_gw + 1))
+    per_gw = model.gameweek_points(con, feats.loc[df.index], teams, next_gw, n_gw)
+
+    def over(h):
+        return per_gw.iloc[:, :h].sum(axis=1)
+
+    pool["ep"] = over(args.horizon)[pool.index]
+
+    # 5. Optimisation, puis stabilité selon l'horizon
     force, exclude = parse_ids(args.force), parse_ids(args.exclude)
     squad_ids, xi_ids = optimize.optimize_squad(pool, args.budget, force=force, exclude=exclude)
     lineup = optimize.lineup(pool, squad_ids, xi_ids, args.budget)
@@ -77,8 +88,7 @@ def run(args):
     stability = {}
     if not args.no_stability:
         for h in STABILITY_HORIZONS:
-            c = model.fixture_context(con, teams, next_gw, h)
-            p, _ = model.judgment_pool(model.expected_points(feats, c))
+            p = pool.assign(ep=over(h)[pool.index])
             try:
                 ids, _ = optimize.optimize_squad(p, args.budget, force=force, exclude=exclude)
             except optimize.InfeasibleSquad as e:
@@ -87,14 +97,17 @@ def run(args):
             for i in ids:
                 stability.setdefault(int(i), []).append(h)
 
-    # 5. Export
+    # 6. Export
     meta = {"season": season, "next_gw": next_gw, "gw_played": info["gw_played"],
             "horizon": args.horizon, "budget": args.budget,
             "w_rate": round(info["w_rate"], 2), "w_share": round(info["w_share"], 2),
             "stability_horizons": list(STABILITY_HORIZONS),
+            "gws": list(range(next_gw, next_gw + n_gw)),
+            "bench_weight": BENCH_WEIGHT,
             "source": "replay" if args.replay else "api", "api_calls": client.calls}
-    payload = export.build_payload(df, pool, motifs, lineup, stability, ctx,
-                                   db.next_fixtures(con, 5), db.gw_history(con), teams, meta)
+    payload = export.build_payload(df, pool, motifs, lineup, stability, ctx, per_gw,
+                                   db.next_fixtures(con, next_gw, 5), db.gw_history(con),
+                                   teams, meta)
     export.write(payload, df, pool, motifs, stability, args.out)
 
     report(pool, lineup, args)

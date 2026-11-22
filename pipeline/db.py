@@ -119,8 +119,12 @@ def fixture_run(con, next_gw, horizon):
     return query(con, "fixture_run.sql", next_gw=next_gw, horizon=horizon).set_index("team_id")
 
 
-def next_fixtures(con, n=5):
-    return query(con, "next_fixtures.sql", n=n)
+def next_fixtures(con, first, n=5):
+    return query(con, "next_fixtures.sql", first=first, n=n)
+
+
+def gw_fixtures(con, first, last):
+    return query(con, "gw_fixtures.sql", first=first, last=last)
 
 
 def gw_history(con):

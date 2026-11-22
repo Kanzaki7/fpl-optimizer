@@ -127,6 +127,14 @@ def test_end_to_end(api_dir, tmp_path):
     assert players[sq["bench"][0]]["pos"] == "GK"
     assert os.path.exists(os.path.join(out, "fpl_expected_points.csv"))
     assert res["meta"]["next_gw"] == 4 and res["meta"]["gw_played"] == 3
+
+    # valeurs par journée : leur somme sur l'horizon est la valeur du solveur
+    gws, h = res["meta"]["gws"], res["meta"]["horizon"]
+    assert gws[0] == 4 and len(gws) == 7          # journées 4 à 10 du calendrier test
+    for p in res["players"]:
+        assert len(p["g"]) == len(gws)
+        if p["pool"]:
+            assert sum(p["g"][:h]) == pytest.approx(p["ep_opt"], abs=0.1)
     assert sum(SQUAD_QUOTA.values()) == 15
 
     # deuxième passage : tout vient du cache, seules 2 requêtes partent

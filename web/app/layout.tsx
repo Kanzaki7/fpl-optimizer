@@ -9,6 +9,8 @@ import "./globals.css";
 import { Logo } from "@/components/Shape";
 import { Nav } from "@/components/Nav";
 import { ThemeToggle, themeScript } from "@/components/ThemeToggle";
+import { SettingsProvider } from "@/components/SettingsProvider";
+import { getData } from "@/lib/data";
 
 const REPO = "https://github.com/Kanzaki7/fpl-optimizer";
 
@@ -26,6 +28,7 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const { meta } = getData();
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
@@ -48,7 +51,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeToggle />
           </div>
         </header>
-        <main className="wrap">{children}</main>
+        <main className="wrap">
+          <SettingsProvider meta={meta}>{children}</SettingsProvider>
+        </main>
         <footer className="foot">
           <div className="wrap">
             <span>

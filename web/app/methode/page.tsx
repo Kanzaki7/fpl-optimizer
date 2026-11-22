@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 const REPO = "https://github.com/Kanzaki7/fpl-optimizer/blob/main";
 
 const STEPS = [
-  { k: "01", t: "Collecte", d: "API officielle FPL : 2 requêtes par jour, plus une par journée terminée." },
-  { k: "02", t: "Cache", d: "Saisons passées et journées validées gardées en JSON, versionnées." },
+  { k: "01", t: "Collecte", d: "API officielle FPL, chaque matin via GitHub Actions." },
+  { k: "02", t: "Cache", d: "Saisons passées et journées validées gardées : 2 requêtes par jour suffisent." },
   { k: "03", t: "SQLite", d: "6 tables brutes, puis les variables calculées par des vues SQL." },
-  { k: "04", t: "Modèle", d: "Points attendus par joueur sur les 8 prochaines journées (pandas)." },
+  { k: "04", t: "Modèle", d: "Points attendus par joueur, journée par journée (pandas)." },
   { k: "05", t: "Solveur", d: "Programme linéaire en nombres entiers (PuLP, HiGHS) sous les règles du jeu." },
-  { k: "06", t: "Site", d: "JSON et CSV commités par GitHub Actions, Vercel reconstruit le site." },
+  { k: "06", t: "Site", d: "Le même solveur tourne dans le navigateur (WebAssembly) pour vos réglages." },
 ];
 
 function Sql() {
@@ -42,7 +42,7 @@ function Sql() {
 }
 
 export default function Methode() {
-  const { data } = getData();
+  const data = getData();
   const pb = getPipelineBacktest();
   const ib = getIndicatorBacktest();
   const m = data.meta;
@@ -55,8 +55,8 @@ export default function Methode() {
         <div className="kicker"><span className="tag accent">Python · SQL · PuLP</span><span className="tag">v{m.version}</span></div>
         <h1>Comment l&apos;équipe est choisie</h1>
         <p className="lead">
-          De l&apos;API officielle jusqu&apos;à cette page, en six étapes. Chaque constante du modèle a été confrontée
-          aux saisons passées, et le pipeline complet est testé sur une saison qu&apos;il n&apos;a jamais vue.
+          De l&apos;API officielle jusqu&apos;à cette page, en six étapes. Le modèle a été réglé sur deux saisons
+          passées, puis testé sur une troisième qu&apos;il n&apos;avait jamais vue.
         </p>
       </section>
 
@@ -70,103 +70,47 @@ export default function Methode() {
         </section>
 
         <section>
-          <div className="section-head"><span className="idx">01 · 02</span><h2>Collecte et nettoyage</h2></div>
-          <p>
-            La première version interrogeait la fiche de chaque joueur, soit environ 750 requêtes par exécution.
-            Le pipeline lit maintenant les statistiques de tous les joueurs <strong>journée par journée</strong> (une
-            requête par journée), et ne télécharge l&apos;historique des saisons passées qu&apos;une fois par saison et par
-            joueur, indexé par son identifiant stable. En régime courant : <strong>2 requêtes par jour</strong>.
-          </p>
+          <div className="section-head"><span className="idx">01</span><h2>Le modèle en bref</h2></div>
           <ul>
-            <li>Reprises avec attente exponentielle, respect de l&apos;en-tête <code>Retry-After</code> (l&apos;API répond 503 pendant ses mises à jour) ; un refus 403 n&apos;est pas retenté.</li>
-            <li>Les champs xG arrivent en texte, les pourcentages de disponibilité peuvent être vides : tout est typé au chargement.</li>
-            <li>En cas d&apos;échec, l&apos;exécution s&apos;arrête sans rien écrire : le site garde les dernières données valides.</li>
+            <li><strong>Qui joue :</strong> la part de minutes projetée est le meilleur indicateur. Elle mélange la saison passée et la saison en cours ({num(m.w_share * 100, 0)} % aujourd&apos;hui), puis la disponibilité annoncée par le club s&apos;applique. Sous 70 %, un joueur n&apos;est pas retenu.</li>
+            <li><strong>À quel niveau :</strong> les points par 90 minutes des trois dernières saisons (60 / 30 / 10 %), mélangés à la saison en cours ({num(m.w_rate * 100, 0)} % aujourd&apos;hui).</li>
+            <li><strong>Jeu produit :</strong> les points sont tirés à 60 % vers ce que valent ses xG et xA, plus stables que les buts marqués.</li>
+            <li><strong>Calendrier :</strong> chaque match est pondéré par sa difficulté, avec un effet volontairement faible (±7,5 % par niveau).</li>
+            <li><strong>Choix des 15 :</strong> un programme linéaire en nombres entiers maximise les points du onze (et un quart de ceux du banc) sous le budget, les quotas par poste et la limite de 3 joueurs par club.</li>
           </ul>
         </section>
 
-        <section>
-          <div className="section-head"><span className="idx">03</span><h2>Les variables en SQL</h2></div>
-          <p>
-            Les réponses de l&apos;API sont chargées dans six tables SQLite (équipes, joueurs, matchs, stats par journée,
-            saisons passées, pondérations). Les variables du modèle sont des <strong>vues</strong> : jointures, agrégats,
-            sous-requêtes et fonctions de fenêtre. On peut ouvrir la base pour vérifier n&apos;importe quel chiffre
-            (<code>python -m pipeline --db fpl.sqlite</code>).
-          </p>
-          <Sql />
-          <p className="muted" style={{ marginTop: 12, fontSize: 13.5 }}>
-            Les autres vues calculent les matchs disputés depuis l&apos;arrivée de chaque joueur, sa régularité (part des points
-            venant de son meilleur match), sa finition sur la carrière, la conversion de son équipe et le calendrier.{" "}
-            <a href={`${REPO}/pipeline/sql/features.sql`}>Lire features.sql</a>
-          </p>
-        </section>
-
-        <section>
-          <div className="section-head"><span className="idx">04</span><h2>Le modèle</h2></div>
-          <pre className="code">
-            <span className="c">{"# points attendus d'un joueur sur l'horizon"}</span>{"\n"}
-            EP = matchs × [ taux/90 × part de minutes × calendrier{"\n"}
-            {"             "}+ P(clean sheet) × points de clean sheet × part de minutes ]
-          </pre>
-          <ul style={{ marginTop: 14 }}>
-            <li><strong>Taux par 90 minutes :</strong> les trois dernières saisons, pondérées 60 / 30 / 10 %, mélangées à la saison en cours, dont le poids monte de 8 % par journée (plafond 70 %, aujourd&apos;hui {num(m.w_rate * 100, 0)} %).</li>
-            <li><strong>Part de minutes :</strong> le signal le plus fiable. La saison en cours pèse 15 % par journée (plafond 85 %, aujourd&apos;hui {num(m.w_share * 100, 0)} %), puis la disponibilité annoncée par le club s&apos;applique.</li>
-            <li><strong>Nouveaux venus :</strong> lissés vers la médiane de leur poste tant que l&apos;échantillon est court (confiance = minutes / (minutes + 900)).</li>
-            <li><strong>Jeu produit :</strong> un second calcul remplace buts et passes par les xG et xA. Pour l&apos;optimisation, les milieux et attaquants sont tirés à 60 % vers cette valeur ; les défenseurs seulement vers le haut, les gardiens jamais.</li>
-            <li><strong>Pool :</strong> les joueurs projetés sous 70 % des minutes sont écartés ({m.n_pool} retenus sur {m.n_players}).</li>
-          </ul>
-        </section>
-
-        <section>
-          <div className="section-head"><span className="idx">05</span><h2>L&apos;optimisation</h2></div>
-          <p>
-            Choisir 15 joueurs parmi {m.n_pool} est un problème de sac à dos avec contraintes : un programme linéaire en
-            nombres entiers, résolu exactement en moins d&apos;une seconde.
-          </p>
-          <pre className="code">
-            <span className="k">maximiser</span>{"   "}Σ EP(XI) + 0,25 × Σ EP(banc){"\n"}
-            <span className="k">sous</span>{"        "}Σ prix ≤ £{num(m.budget, 1)}m{"\n"}
-            {"            "}2 gardiens, 5 défenseurs, 5 milieux, 3 attaquants{"\n"}
-            {"            "}au plus 3 joueurs par club{"\n"}
-            {"            "}XI : 1 gardien, 3 à 5 défenseurs, 2 à 5 milieux, 1 à 3 attaquants
-          </pre>
-          <p className="muted" style={{ marginTop: 12, fontSize: 13.5 }}>
-            Le calcul est refait à 4, 6 et 8 journées : un joueur retenu aux trois horizons est un choix solide, un joueur
-            retenu à un seul est un pari sur le calendrier.
-          </p>
-        </section>
-
-        <section>
-          <div className="section-head"><span className="idx">06</span><h2>Backtest</h2></div>
-          {pb ? (
-            <>
-              <p>
-                Les constantes ont été réglées sur 2023-24 et 2024-25. Le pipeline complet est ensuite rejoué sur{" "}
-                <strong>2025-26</strong>, saison qu&apos;il n&apos;a jamais vue : à six moments de la saison, on reconstruit
-                les données telles qu&apos;elles étaient ce jour-là, on choisit l&apos;équipe, et on compte les points
-                réellement marqués sur les 8 journées suivantes.
-              </p>
-              <div className="callouts">
-                <div className="panel reticle callout"><span className="rt" />
-                  <div className="label">Modèle</div>
-                  <div className="big-num">{pb.total.model}<small> pts</small></div>
-                  <p>Sur 48 journées, sans transfert. Meilleur que la foule {wins} fois sur {pb.rows.length}.</p>
-                </div>
-                <div className="panel callout">
-                  <div className="label">Les plus sélectionnés</div>
-                  <div className="big-num">{pb.total.popular}<small> pts</small></div>
-                  <p>L&apos;équipe la plus populaire possible sous les mêmes règles : le modèle fait {num(gain, 1)} % de mieux.</p>
-                </div>
-                <div className="panel callout">
-                  <div className="label">Idéal a posteriori</div>
-                  <div className="big-num">{pb.total.hindsight}<small> pts</small></div>
-                  <p>Inatteignable : la meilleure équipe en connaissant les résultats. Le modèle en capte {num((pb.total.model / pb.total.hindsight) * 100, 0)} %.</p>
-                </div>
+        {pb ? (
+          <section>
+            <div className="section-head"><span className="idx">02</span><h2>Testé sur une saison inédite</h2></div>
+            <p>
+              Le pipeline complet a été rejoué sur <strong>2025-26</strong> : à six moments de la saison, il choisit
+              l&apos;équipe avec les seules données de ce jour-là, puis on compte ses points réels sur les 8 journées suivantes.
+            </p>
+            <div className="callouts">
+              <div className="panel reticle callout"><span className="rt" />
+                <div className="label">Modèle</div>
+                <div className="big-num">{pb.total.model}<small> pts</small></div>
+                <p>Sur 48 journées, sans transfert. Meilleur que la foule {wins} fois sur {pb.rows.length}.</p>
               </div>
-              <div className="panel chart-card">
-                <h3>Points marqués par fenêtre de 8 journées · saison 2025/26</h3>
-                <p className="sub">XI et capitaine doublé, équipe figée sur la fenêtre.</p>
-                <BacktestBars data={pb} />
-                <div className="table-wrap" style={{ marginTop: 14, boxShadow: "none" }}>
+              <div className="panel callout">
+                <div className="label">Les plus sélectionnés</div>
+                <div className="big-num">{pb.total.popular}<small> pts</small></div>
+                <p>L&apos;équipe la plus populaire possible sous les mêmes règles : le modèle fait {num(gain, 1)} % de mieux.</p>
+              </div>
+              <div className="panel callout">
+                <div className="label">Idéal a posteriori</div>
+                <div className="big-num">{pb.total.hindsight}<small> pts</small></div>
+                <p>La meilleure équipe en connaissant les résultats, inatteignable. Le modèle en capte {num((pb.total.model / pb.total.hindsight) * 100, 0)} %.</p>
+              </div>
+            </div>
+            <div className="panel chart-card">
+              <h3>Points marqués par fenêtre de 8 journées</h3>
+              <p className="sub">Onze et capitaine doublé, équipe figée sur la fenêtre.</p>
+              <BacktestBars data={pb} />
+              <details className="more-details">
+                <summary>Voir les chiffres</summary>
+                <div className="table-wrap" style={{ marginTop: 10, boxShadow: "none" }}>
                   <table className="data">
                     <thead><tr><th>Journées</th><th>Modèle</th><th>Plus sélectionnés</th><th>Idéal</th><th>Capitaine</th></tr></thead>
                     <tbody>
@@ -178,33 +122,66 @@ export default function Methode() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </>
-          ) : null}
-
-          {ib ? (
-            <div style={{ marginTop: 28 }}>
-              <h3 style={{ marginBottom: 8 }}>Validation des indicateurs · {ib.seasons.join(" et ")}</h3>
-              <p className="muted" style={{ fontSize: 14 }}>
-                On se place après la journée 5, 10 ou 20, on calcule chaque indicateur avec ce qu&apos;on savait alors,
-                et on mesure son lien avec les points marqués ensuite. Deux règles intuitives ont été retirées parce que les
-                données les contredisaient : le filtre « joueur en surchauffe » (ces joueurs ont marqué plus que les autres)
-                et un seuil de minutes trop strict.
-              </p>
-              <IndicatorCharts data={ib} />
+              </details>
             </div>
-          ) : null}
+          </section>
+        ) : null}
+
+        <section>
+          <div className="section-head"><span className="idx">03</span><h2>Limites</h2></div>
+          <ul>
+            <li>Deux joueurs à 2 ou 3 points d&apos;écart sont équivalents : c&apos;est sous la marge d&apos;erreur du modèle.</li>
+            <li>Les blessures ne sont connues que lorsque le club les annonce, et le modèle ne devine pas les rotations.</li>
+            <li>Le test ignore transferts et remplacements automatiques : il compare des stratégies, pas un classement réel.</li>
+          </ul>
         </section>
 
         <section>
-          <div className="section-head"><span className="idx">07</span><h2>Limites</h2></div>
-          <ul>
-            <li>La marge d&apos;erreur dépasse les écarts de 2 ou 3 points entre joueurs proches : le modèle classe, il ne tranche pas.</li>
-            <li>Le calendrier pèse peu (±7,5 % par point de difficulté) : sur 8 journées, son lien avec les points mesuré dans le backtest reste entre 0 et 0,08.</li>
-            <li>Le prix prédit les points aussi bien que le temps de jeu (0,41 contre 0,40 après la journée 5) : il résume le jugement du marché. Le modèle ne s&apos;en sert pas comme entrée, pour ne pas suivre la foule.</li>
-            <li>Le bonus des tireurs de penalty et la règle sur les mauvais finisseurs n&apos;ont pas pu être validés faute de données.</li>
-            <li>Le backtest ignore transferts, remplacements automatiques et blessures annoncées ; il compare des stratégies, pas un classement réel.</li>
-          </ul>
+          <details className="tech">
+            <summary><span className="idx">04</span> Détails techniques</summary>
+            <div className="tech-body">
+              <h3>Collecte</h3>
+              <p>
+                Les statistiques de tous les joueurs sont lues journée par journée (une requête par journée), et
+                l&apos;historique des saisons passées une seule fois par joueur et par saison : 2 requêtes par jour au lieu
+                d&apos;environ 750. Reprises avec attente sur les erreurs passagères ; en cas d&apos;échec, rien n&apos;est
+                écrit et le site garde les dernières données valides.
+              </p>
+
+              <h3>Variables en SQL</h3>
+              <p>
+                Les réponses de l&apos;API sont chargées dans six tables SQLite ; les variables du modèle sont des vues
+                (jointures, agrégats, sous-requêtes, fonctions de fenêtre).{" "}
+                <a href={`${REPO}/pipeline/sql/features.sql`}>Voir features.sql</a>
+              </p>
+              <Sql />
+
+              <h3>Optimisation</h3>
+              <pre className="code">
+                <span className="k">maximiser</span>{"   "}Σ points(XI) + 0,25 × Σ points(banc){"\n"}
+                <span className="k">sous</span>{"        "}Σ prix ≤ budget{"\n"}
+                {"            "}2 gardiens, 5 défenseurs, 5 milieux, 3 attaquants{"\n"}
+                {"            "}au plus 3 joueurs par club{"\n"}
+                {"            "}XI : 1 gardien, 3 à 5 défenseurs, 2 à 5 milieux, 1 à 3 attaquants
+              </pre>
+              <p className="muted" style={{ marginTop: 10, fontSize: 13.5 }}>
+                Résolu par PuLP et HiGHS chaque matin, et par HiGHS compilé en WebAssembly quand vous changez un réglage :
+                les deux partent des mêmes points par journée.
+              </p>
+
+              {ib ? (
+                <>
+                  <h3>Validation des indicateurs · {ib.seasons.join(" et ")}</h3>
+                  <p className="muted" style={{ fontSize: 14 }}>
+                    Après la journée 5, 10 ou 20, chaque indicateur est calculé avec ce qu&apos;on savait alors, puis comparé
+                    aux points marqués ensuite. Deux règles intuitives ont été retirées parce que les données les
+                    contredisaient : le filtre « joueur en surchauffe » et un seuil de minutes trop strict.
+                  </p>
+                  <IndicatorCharts data={ib} />
+                </>
+              ) : null}
+            </div>
+          </details>
         </section>
       </div>
     </>

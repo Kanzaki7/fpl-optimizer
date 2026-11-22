@@ -35,8 +35,8 @@ def pepites(df):
     return set(p.nlargest(12, "val_x").index)
 
 
-def build_payload(df, pool, motifs, lineup, stability, ctx, fixtures_next, gw_hist,
-                  teams, meta):
+def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_next,
+                  gw_hist, teams, meta):
     nxt = {tid: [[int(r.gw), r.opp, int(r.home), int(r.fdr)] for r in part.itertuples()]
            for tid, part in fixtures_next.groupby("team_id")}
     hist = {pid: [[int(r.gw), int(r.total_points), int(r.minutes)] for r in part.itertuples()]
@@ -65,6 +65,9 @@ def build_payload(df, pool, motifs, lineup, stability, ctx, fixtures_next, gw_hi
             "chance": int(r["chance_next"]) if pd.notna(r["chance_next"]) else None,
             "news": r["news"] or "",
             "motif": motifs.get(pid) or None,
+            "pool": pid in pool.index,
+            # valeur d'optimisation par journée (meta.gws) : le site additionne
+            "g": [round(float(v), 2) for v in per_gw.loc[pid]],
             "pepite": pid in pep,
             "robust": stability.get(pid, []),
             "next": nxt.get(int(r["team_id"]), []),

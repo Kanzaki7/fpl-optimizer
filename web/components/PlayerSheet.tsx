@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Meta, Player } from "@/lib/types";
 import { MOTIF, POS_LABEL, STATUS, num, pct, price, signed } from "@/lib/format";
 import { Shape } from "./Shape";
+import { useSettings } from "./SettingsProvider";
+import { periodValue } from "@/lib/plan";
 
 interface Props {
   player: Player;
@@ -76,6 +78,12 @@ export function PlayerSheet({ player: p, meta, role, onClose }: Props) {
     };
   }, [onClose]);
 
+  const { settings, toggle } = useSettings();
+  const forced = settings.force.includes(p.id), excluded = settings.exclude.includes(p.id);
+  const pv = periodValue(p, meta, settings.from, settings.to);
+  const span = settings.to - settings.from + 1;
+  const nextIdx = settings.from - meta.gws[0];
+  const nextV = p.g[nextIdx] ?? 0;
   const h = meta.horizon;
   const unavailable = p.status !== "a" || (p.chance != null && p.chance < 100);
   const robust = p.robust.length;
@@ -116,24 +124,31 @@ export function PlayerSheet({ player: p, meta, role, onClose }: Props) {
             {p.pepite ? <span className="tag good">Pépite</span> : null}
           </div>
           {p.news ? <p className="muted" style={{ fontSize: 13, margin: "10px 0 0" }}>« {p.news} »</p> : null}
+          <div className="sheet-actions">
+            <button type="button" className={`btn ${forced ? "" : "ghost"}`} aria-pressed={forced} onClick={() => toggle("force", p.id)}>
+              {forced ? "Imposé ✓" : "Imposer"}
+            </button>
+            <button type="button" className={`btn ${excluded ? "" : "ghost"}`} aria-pressed={excluded} onClick={() => toggle("exclude", p.id)}>
+              {excluded ? "Exclu ✓" : "Exclure"}
+            </button>
+          </div>
         </div>
 
         <div className="sheet-body">
           <section>
             <div className="metrics">
-              <Metric k={`Points attendus · ${h} J`} v={num(p.ep)}
-                h={`Environ ${num(p.ep_gw)} par match, d'après ses points marqués.`} />
-              <Metric k="Selon le jeu produit" v={num(p.ep_x)}
-                h={p.pos === "GK" ? "Peu parlant pour un gardien : les arrêts n'y sont pas." : "Même calcul, mais avec ses xG et xA au lieu de ses buts et passes."} />
-              <Metric k="Écart" v={<span className={p.gap == null ? "" : p.gap > 3 ? "pos" : p.gap < -10 ? "neg" : ""}>{signed(p.gap)}</span>}
+              <Metric k={`Points attendus · J${settings.from}${span > 1 ? `–${settings.to}` : ""}`} v={num(pv)}
+                h={p.pool ? `Valeur utilisée par le solveur, environ ${num(pv / span)} par journée.`
+                  : `${(p.motif && MOTIF[p.motif]) || "Hors du pool."} Imposez-le pour le prendre quand même.`} />
+              <Metric k={`Journée ${settings.from}`} v={nextV ? num(nextV) : "—"}
+                h={nextV ? "Points attendus sur cette seule journée : utile pour le capitaine." : "Pas de match cette journée."} />
+              <Metric k={`Selon le jeu produit · ${h} J`} v={num(p.ep_x)}
+                h={p.pos === "GK" ? "Peu parlant pour un gardien : les arrêts n'y sont pas." : "Avec ses xG et xA au lieu de ses buts et passes."} />
+              <Metric k={`Écart · ${h} J`} v={<span className={p.gap == null ? "" : p.gap > 3 ? "pos" : p.gap < -10 ? "neg" : ""}>{signed(p.gap)}</span>}
                 h={p.gap == null ? "Pas assez de minutes cette saison."
                   : p.gap > 3 ? "Son jeu vaut plus que ses points : il pourrait progresser."
                   : p.gap < -10 ? "Ses points dépassent nettement son jeu : prudence."
-                  : "Écart habituel : ce calcul ignore les bonus et les actions défensives."} />
-              <Metric k="Retenu pour l'optimisation" v={p.ep_opt != null ? num(p.ep_opt) : "—"}
-                h={p.ep_opt == null ? (p.motif && MOTIF[p.motif]) || "Hors du pool."
-                  : Math.abs(p.ep_opt - p.ep) < 0.05 ? "Sans correction : c'est la valeur utilisée par le solveur."
-                  : "Tiré à 60 % vers le jeu produit : c'est la valeur utilisée par le solveur."} />
+                  : "Écart habituel : ce calcul ignore bonus et actions défensives."} />
             </div>
           </section>
 
