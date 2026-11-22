@@ -11,6 +11,10 @@ interface Props {
   meta: Meta;
   role?: "C" | "V" | "XI" | "BANC" | null;
   onClose: () => void;
+  /** bloc affiché en tête de fiche (ex. : remplacer le joueur dans son équipe) */
+  extra?: React.ReactNode;
+  /** boutons Imposer / Exclure */
+  actions?: boolean;
 }
 
 function Metric({ k, v, h }: { k: string; v: React.ReactNode; h: string }) {
@@ -62,7 +66,7 @@ function GwBars({ hist }: { hist: Player["hist"] }) {
   );
 }
 
-export function PlayerSheet({ player: p, meta, role, onClose }: Props) {
+export function PlayerSheet({ player: p, meta, role, onClose, extra, actions = true }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
@@ -124,17 +128,18 @@ export function PlayerSheet({ player: p, meta, role, onClose }: Props) {
             {p.pepite ? <span className="tag good">Pépite</span> : null}
           </div>
           {p.news ? <p className="muted" style={{ fontSize: 13, margin: "10px 0 0" }}>« {p.news} »</p> : null}
-          <div className="sheet-actions">
+          {actions ? <div className="sheet-actions">
             <button type="button" className={`btn ${forced ? "" : "ghost"}`} aria-pressed={forced} onClick={() => toggle("force", p.id)}>
               {forced ? "Imposé ✓" : "Imposer"}
             </button>
             <button type="button" className={`btn ${excluded ? "" : "ghost"}`} aria-pressed={excluded} onClick={() => toggle("exclude", p.id)}>
               {excluded ? "Exclu ✓" : "Exclure"}
             </button>
-          </div>
+          </div> : null}
         </div>
 
         <div className="sheet-body">
+          {extra}
           <section>
             <div className="metrics">
               <Metric k={`Points attendus · J${settings.from}${span > 1 ? `–${settings.to}` : ""}`} v={num(pv)}

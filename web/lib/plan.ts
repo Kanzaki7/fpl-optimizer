@@ -139,3 +139,31 @@ export function forceProblem(byId: Map<number, Player>, s: Settings): string | n
   if (cost > s.budget + 1e-9) return `Les joueurs imposés coûtent déjà £${cost.toFixed(1)}m, plus que le budget.`;
   return null;
 }
+
+const ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3 } as const;
+
+/** Meilleur onze possible parmi 15 joueurs donnés (toutes les formations valides). */
+export function bestLineup(byId: Map<number, Player>, squadIds: number[], value: Map<number, number>, budget: number): Solution {
+  const v = (id: number) => value.get(id) ?? 0;
+  const by = (pos: keyof typeof QUOTA) => squadIds.filter((id) => byId.get(id)?.pos === pos).sort((a, b) => v(b) - v(a));
+  const g = by("GK"), d = by("DEF"), m = by("MID"), f = by("FWD");
+  let best: number[] = [], bestV = -Infinity;
+  for (let nd = XI_MIN.DEF; nd <= Math.min(XI_MAX.DEF, d.length); nd++)
+    for (let nf = XI_MIN.FWD; nf <= Math.min(XI_MAX.FWD, f.length); nf++) {
+      const nm = 10 - nd - nf;
+      if (nm < XI_MIN.MID || nm > Math.min(XI_MAX.MID, m.length)) continue;
+      const xi = [...g.slice(0, 1), ...d.slice(0, nd), ...m.slice(0, nm), ...f.slice(0, nf)];
+      const t = xi.reduce((a, id) => a + v(id), 0);
+      if (t > bestV) { bestV = t; best = xi; }
+    }
+  return lineup(byId, squadIds, best, value, budget);
+}
+
+/** Différence entre l'équipe d'origine et le brouillon, en transferts appariés par poste. */
+export function diff(byId: Map<number, Player>, original: number[], draft: number[]) {
+  const sort = (a: number, b: number) =>
+    ORDER[byId.get(a)!.pos] - ORDER[byId.get(b)!.pos] || byId.get(b)!.price - byId.get(a)!.price;
+  const out = original.filter((id) => !draft.includes(id)).sort(sort);
+  const inn = draft.filter((id) => !original.includes(id)).sort(sort);
+  return out.map((o, i) => [o, inn[i]] as [number, number]);
+}

@@ -123,32 +123,34 @@ export function Planner({ meta, players, entry, entryError, entryLoading }: Prop
               <select className="field" value={ft} aria-label="Transferts gratuits" onChange={(e) => update({ ft: +e.target.value })}>
                 {[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} gratuit{n > 1 ? "s" : ""}</option>)}
               </select>
-              <select className="field" value={s.maxT} aria-label="Transferts au plus" onChange={(e) => update({ maxT: +e.target.value })}>
-                {[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} au plus</option>)}
+              <select className="field" value={s.maxT} aria-label="Transferts suggérés au plus" onChange={(e) => update({ maxT: +e.target.value })}>
+                {[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} suggéré{n > 1 ? "s" : ""} au plus</option>)}
               </select>
             </div>
-            <span className="hint">Au-delà des gratuits, −4 pts chacun : le calcul en tient compte.</span>
+            <span className="hint">Suggestions : au-delà des gratuits, −4 pts chacun.</span>
           </div>
         ) : null}
 
+        {mine ? null : <>
         <div className="pl-field grow">
-          <span className="label">{mine ? "Garder ou acheter" : "Imposer"}</span>
+          <span className="label">Imposer</span>
           <PlayerPicker players={players} taken={[...s.force, ...s.exclude]} label="Imposer un joueur"
             placeholder="Ajouter un joueur…" onPick={(p) => toggle("force", p.id)} />
           <div className="chips">
             {s.force.map((id) => <Chip key={id} id={id} kind="force" />)}
-            {s.force.length === 0 && !mine ? <span className="hint">Ou importez votre équipe avec « Mon équipe ».</span> : null}
+            {s.force.length === 0 ? <span className="hint">Ou importez votre équipe avec « Mon équipe ».</span> : null}
           </div>
         </div>
 
         <div className="pl-field grow">
-          <span className="label">{mine ? "Vendre ou éviter" : "Exclure"}</span>
+          <span className="label">Exclure</span>
           <PlayerPicker players={players} taken={[...s.force, ...s.exclude]} label="Exclure un joueur"
             placeholder="Retirer un joueur…" onPick={(p) => toggle("exclude", p.id)} />
           <div className="chips">
             {s.exclude.map((id) => <Chip key={id} id={id} kind="exclude" />)}
           </div>
         </div>
+        </>}
       </div>
     </section>
   );
