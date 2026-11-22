@@ -15,7 +15,7 @@ export function AlertSignup({ entry }: { entry: number }) {
       body: JSON.stringify({ email, entry, website: trap }),
     }).catch(() => null);
     const body = r ? await r.json().catch(() => ({})) : {};
-    setState(r?.ok ? "sent" : body.error || "Inscription impossible pour le moment.");
+    setState(r?.ok ? "sent" : [body.error || "Inscription impossible pour le moment.", body.detail].filter(Boolean).join(" — "));
   };
   return (
     <section className="panel card signup">
