@@ -6,7 +6,7 @@ import { useState } from "react";
 export function AlertSignup({ entry }: { entry: number }) {
   const [email, setEmail] = useState("");
   const [trap, setTrap] = useState("");
-  const [state, setState] = useState<"idle" | "busy" | "sent" | string>("idle");
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "already" | "recent" | string>("idle");
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setState("busy");
@@ -15,14 +15,18 @@ export function AlertSignup({ entry }: { entry: number }) {
       body: JSON.stringify({ email, entry, website: trap }),
     }).catch(() => null);
     const body = r ? await r.json().catch(() => ({})) : {};
-    setState(r?.ok ? "sent" : [body.error || "Inscription impossible pour le moment.", body.detail].filter(Boolean).join(" — "));
+    setState(r?.ok ? (body.status === "already" || body.status === "recent" ? body.status : "sent")
+      : [body.error || "Inscription impossible pour le moment.", body.detail].filter(Boolean).join(" — "));
   };
   return (
     <section className="panel card signup">
       <h2>Recevoir ces conseils par e-mail</h2>
-      {state === "sent" ? (
+      {state === "sent" || state === "already" || state === "recent" ? (
         <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
-          C&apos;est presque fini : ouvrez l&apos;e-mail envoyé à <b>{email}</b> et confirmez.
+          {state === "already" ? <>L&apos;adresse <b>{email}</b> reçoit déjà les alertes pour cette équipe : rien à faire.</>
+            : state === "recent" ? <>Un e-mail de confirmation vient déjà de partir vers <b>{email}</b>. Pensez à regarder dans les spams.</>
+            : <>C&apos;est presque fini : ouvrez l&apos;e-mail envoyé à <b>{email}</b> et confirmez. S&apos;il n&apos;arrive pas, regardez dans les spams.</>}
+          {" "}<button type="button" className="linkish" onClick={() => setState("idle")}>Autre adresse</button>
         </p>
       ) : (
         <form onSubmit={submit}>

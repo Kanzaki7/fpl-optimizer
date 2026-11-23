@@ -605,3 +605,4 @@ summary::-webkit-details-marker { display: none; }
   .move.sugg, .move.done { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
   .move .apply, .move .undo { grid-column: 1 / -1; justify-self: start; }
 }
+.linkish { all: unset; cursor: pointer; text-decoration: underline; color: var(--ink2); }

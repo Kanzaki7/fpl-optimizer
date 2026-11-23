@@ -19,8 +19,11 @@ export async function POST(req: Request) {
   const token = newToken();
   try {
     const existing = await findByEmail(email);
+    if (existing?.confirmed && existing.fpl_id === fplId) {
+      return NextResponse.json({ ok: true, status: "already" });          // rien à faire, aucun e-mail
+    }
     if (existing && Date.now() - new Date(existing.updated_at).getTime() < 2 * 60_000) {
-      return NextResponse.json({ ok: true });                            // pas de rafale d'e-mails
+      return NextResponse.json({ ok: true, status: "recent" });           // pas de rafale d'e-mails
     }
     if (existing) await update(existing.id, { fpl_id: fplId, token, confirmed: false, updated_at: now });
     else await insert({ email, fpl_id: fplId, token, confirmed: false, updated_at: now });
@@ -34,7 +37,7 @@ export async function POST(req: Request) {
     console.error("alertes : envoi", e);
     return NextResponse.json({ error: "L'e-mail de confirmation n'a pas pu partir.", detail: `Envoi : ${short(e)}` }, { status: 502 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status: "sent" });
 }
 
 /** Message d'erreur court et sans secret : code et première ligne. */
