@@ -144,3 +144,29 @@ def test_end_to_end(api_dir, tmp_path):
                  "--overrides", "", "-q"]) == 0
     with open(os.path.join(out, "latest.json"), encoding="utf-8") as f:
         assert json.load(f)["meta"]["api_calls"] == 2
+
+
+# ------------------------------------------------------------------ disponibilité
+def test_availability_by_gameweek():
+    from datetime import datetime, timezone
+    today = datetime(2026, 11, 25, tzinfo=timezone.utc)
+    gws = [13, 14, 15, 16, 17]
+    # journées le samedi : 28 nov, 5 déc, 12 déc, 19 déc, 26 déc
+    deadlines = {13: datetime(2026, 11, 28, 11, tzinfo=timezone.utc), 14: datetime(2026, 12, 5, 11, tzinfo=timezone.utc),
+                 15: datetime(2026, 12, 12, 11, tzinfo=timezone.utc), 16: datetime(2026, 12, 19, 11, tzinfo=timezone.utc),
+                 17: datetime(2026, 12, 26, 11, tzinfo=timezone.utc)}
+    f = pd.DataFrame([
+        {"status": "a", "chance_next": None, "news": ""},                                    # disponible
+        {"status": "i", "chance_next": 0, "news": "Hamstring injury - Expected back 10 Dec"},  # retour J15
+        {"status": "s", "chance_next": 0, "news": "Suspended until 29 Nov"},                 # 1 match
+        {"status": "i", "chance_next": 0, "news": "Knee injury - Unknown return date"},      # rampe
+        {"status": "d", "chance_next": 50, "news": "Knock - 50% chance of playing"},         # incertain
+    ], index=[1, 2, 3, 4, 5])
+    A = model.availability(f, deadlines, gws, today)
+    assert A.loc[1].tolist() == [1, 1, 1, 1, 1]
+    assert A.loc[2].tolist() == [0, 0, 1, 1, 1]
+    assert A.loc[3].tolist() == [0, 1, 1, 1, 1]
+    assert A.loc[4].tolist() == [0, 0.25, 0.5, 0.75, 1]
+    assert A.loc[5].tolist() == [0.5, 0.75, 1, 1, 1]
+    # « Expected back 05 Jan » lu en décembre : janvier de l'année suivante
+    assert model.return_date("Expected back 05 Jan", datetime(2026, 12, 20, tzinfo=timezone.utc)).year == 2027

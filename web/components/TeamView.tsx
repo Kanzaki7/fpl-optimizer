@@ -146,7 +146,7 @@ function Optimal({ base, players, byId, meta, isDefault }: {
       {error ? <div className="notice" role="alert"><span className="label" style={{ color: "var(--bad)" }}>Impossible</span><span>{error}</span></div> : null}
 
       <div className={`stats ${busy ? "busy" : ""}`} aria-label="Résumé de l'équipe" aria-busy={busy}>
-        <div className="stat"><div className="label">Points attendus</div><div className="v">{num(squad.ep_xi)} <small>XI · C ×2</small></div></div>
+        <div className="stat"><div className="label">Points prévus</div><div className="v">{num(squad.ep_xi)} <small>XI · C ×2</small></div></div>
         {best != null && sol ? (
           <div className="stat"><div className="label">Écart à l&apos;optimum</div>
             <div className={`v ${sol.ep_xi - best < -0.05 ? "neg" : ""}`}>{signed(sol.ep_xi - best)}</div></div>
@@ -161,7 +161,7 @@ function Optimal({ base, players, byId, meta, isDefault }: {
 
       <div className={`team-layout ${busy ? "busy" : ""}`}>
         <Pitch squad={squad} byId={byId} value={value} busy={busy} forced={s.force}
-          head={`XI · ${squad.formation} · J${s.from}${n > 1 ? `–J${s.to}` : ""}`} hint={`pts attendus sur ${n} J`}
+          head={`XI · ${squad.formation} · J${s.from}${n > 1 ? `–J${s.to}` : ""}`} hint={`points prévus sur ${n} J`}
           selected={open?.id} onOpen={setOpen} />
 
         <div className="side">

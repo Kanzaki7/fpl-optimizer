@@ -119,7 +119,7 @@ export function MyTeam({ entry, players, byId, meta, s, alerts }: Props) {
   return (
     <>
       <div className="stats" aria-label="Résumé de votre équipe">
-        <div className="stat"><div className="label">Points attendus</div><div className="v">{num(draftScore)} <small>C ×2 · ¼ banc</small></div></div>
+        <div className="stat"><div className="label">Points prévus</div><div className="v">{num(draftScore)} <small>C ×2 · ¼ banc</small></div></div>
         <div className="stat"><div className="label">Gain</div><div className={`v ${draftScore - keepScore > 0.05 ? "pos" : draftScore - keepScore < -0.05 ? "neg" : ""}`}>{signed(draftScore - keepScore)}</div></div>
         <div className="stat"><div className="label">Transferts</div>
           <div className="v">{moves.length}<small> / {ft} gratuit{ft > 1 ? "s" : ""}</small></div></div>

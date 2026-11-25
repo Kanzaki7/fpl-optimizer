@@ -35,7 +35,7 @@ def pepites(df):
     return set(p.nlargest(12, "val_x").index)
 
 
-def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_next,
+def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, avail, fixtures_next,
                   gw_hist, teams, meta, roster):
     nxt = {tid: [[int(r.gw), r.opp, int(r.home), int(r.fdr)] for r in part.itertuples()]
            for tid, part in fixtures_next.groupby("team_id")}
@@ -68,6 +68,8 @@ def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_nex
             "pool": pid in pool.index,
             # valeur d'optimisation par journée (meta.gws) : le site additionne
             "g": [round(float(v), 2) for v in per_gw.loc[pid]],
+            # disponibilité par journée, seulement si elle n'est pas totale
+            **({"avail": [round(float(v), 2) for v in avail.loc[pid]]} if avail.loc[pid].min() < 1 else {}),
             "pepite": pid in pep,
             "robust": stability.get(pid, []),
             "next": nxt.get(int(r["team_id"]), []),
@@ -83,7 +85,7 @@ def build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, fixtures_nex
 
     # Joueurs non évalués (blessés longue durée, partis, sans temps de jeu) :
     # le site en a besoin pour afficher une équipe importée qui en contient.
-    others = [[int(i), r["name"], r["team"], int(r["team_id"]), r["pos"], _num(r["price"], 1), r["status"]]
+    others = [[int(i), r["name"], r["team"], int(r["team_id"]), r["pos"], _num(r["price"], 1), r["status"], r["news"] or ""]
               for i, r in roster.drop(index=df.index, errors="ignore").iterrows()]
 
     return {

@@ -7,8 +7,8 @@ import { PlayerSheet } from "./PlayerSheet";
 import { Shape } from "./Shape";
 import { useSettings } from "./SettingsProvider";
 
-type Row = Player & { pv: number; val: number };
-type Key = "pv" | "val" | "price" | "gap" | "share" | "xgi90" | "points" | "own";
+type Row = Player & { pv: number; val: number; pvg: number; ppm: number };
+type Key = "pv" | "pvg" | "ppm" | "val" | "price" | "gap" | "share" | "xgi90" | "points" | "own";
 
 const PRESETS = [
   { id: "all", label: "Tous" },
@@ -36,12 +36,14 @@ export function PlayersExplorer({ players, meta, csv }: { players: Player[]; met
   const periodLabel = `J${s.from}${span > 1 ? `–${s.to}` : ""}`;
   const COLS: { key: Key; label: string; title: string }[] = [
     { key: "price", label: "Prix", title: "Prix actuel en millions" },
-    { key: "pv", label: `Pts ${periodLabel}`, title: "Points attendus sur la période choisie (valeur utilisée par le solveur)" },
-    { key: "val", label: "Pts/£m", title: "Points attendus par million sur la période" },
+    { key: "pv", label: `Prévus ${periodLabel}`, title: "Points prévus sur la période choisie (valeur utilisée par le solveur)" },
+    { key: "pvg", label: "Prévus/J", title: "Points prévus par journée sur la période" },
+    { key: "ppm", label: "Réels/match", title: "Points réels par match joué cette saison" },
+    { key: "val", label: "Pts/£m", title: "Points prévus par million sur la période" },
     { key: "gap", label: "Écart xG", title: "Sur 8 journées : points selon le jeu produit moins points attendus" },
     { key: "share", label: "Minutes", title: "Part de minutes projetée" },
     { key: "xgi90", label: "xGI/90", title: "Buts et passes attendus par 90 minutes" },
-    { key: "points", label: "Pts saison", title: "Points marqués cette saison" },
+    { key: "points", label: "Réels saison", title: "Points réellement marqués cette saison" },
     { key: "own", label: "Sél. %", title: "Pourcentage d'équipes qui l'ont sélectionné" },
   ];
 
@@ -63,11 +65,11 @@ export function PlayersExplorer({ players, meta, csv }: { players: Player[]; met
         (!nq || norm(`${p.name} ${p.full_name} ${p.team}`).includes(nq)))
       .map((p) => {
         const pv = periodValue(p, meta, s.from, s.to);
-        return { ...p, pv, val: pv / p.price };
+        return { ...p, pv, val: pv / p.price, pvg: pv / span, ppm: p.games ? p.points / p.games : 0 };
       });
     const v = (p: Row) => p[sort.key] ?? -Infinity;
     return list.sort((a, b) => (v(a) > v(b) ? 1 : v(a) < v(b) ? -1 : 0) * sort.dir);
-  }, [players, meta, s.from, s.to, q, pos, team, maxPrice, preset, sort, mine]);
+  }, [players, meta, s.from, s.to, span, q, pos, team, maxPrice, preset, sort, mine]);
 
   const reset = () => setLimit(PAGE);
   const sortBy = (key: Key) => {
@@ -148,6 +150,8 @@ export function PlayersExplorer({ players, meta, csv }: { players: Player[]; met
                 </td>
                 <td>{num(p.price)}</td>
                 <td className={p.pool ? undefined : "dim"} title={p.pool ? undefined : "Hors du pool : temps de jeu insuffisant"}>{num(p.pv)}</td>
+                <td>{num(p.pvg, 1)}</td>
+                <td className="dim">{p.games ? num(p.ppm, 1) : "—"}</td>
                 <td>{num(p.val, 2)}</td>
                 <td className={p.gap == null ? "dim" : p.gap > 3 ? "pos" : p.gap < -10 ? "neg" : undefined}>{signed(p.gap)}</td>
                 <td className={p.share < (meta.params.min_share as number) ? "dim" : undefined}>{pct(p.share)}</td>
@@ -165,10 +169,10 @@ export function PlayersExplorer({ players, meta, csv }: { players: Player[]; met
           <button key={p.id} className={`pcard ${mark(p.id) ?? ""}`} onClick={() => setOpen(p)}>
             <Shape pos={p.pos} size={20} />
             <span className="pname"><b>{p.name}</b><span>{p.team} · {price(p.price)}</span></span>
-            <span className="ep">{card.key === "share" ? pct(p.share) : num(p[card.key] as number | null, card.key === "val" || card.key === "xgi90" ? 2 : 1)}
+            <span className="ep">{card.key === "share" ? pct(p.share) : card.key === "points" ? p.points : num(p[card.key] as number | null, card.key === "val" || card.key === "xgi90" ? 2 : 1)}
               <small>{card.label}</small></span>
             <span className="sub">
-              <span>Min. {pct(p.share)}</span><span>Écart {signed(p.gap)}</span><span>{num(p.val, 2)} pts/£m</span>
+              <span>{num(p.pvg, 1)} prévus/J</span><span>{p.games ? num(p.ppm, 1) : "—"} réels/match</span><span>Min. {pct(p.share)}</span>
               {!p.pool ? <span className="dim">hors pool</span> : null}
               {s.force.includes(p.id) ? <span style={{ color: "var(--accent-ink)" }}>imposé</span> : null}
               {s.exclude.includes(p.id) ? <span className="dim">exclu</span> : null}

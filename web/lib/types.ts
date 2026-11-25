@@ -43,6 +43,8 @@ export interface Player {
   pool: boolean;
   /** valeur d'optimisation par journée, alignée sur meta.gws */
   g: number[];
+  /** disponibilité par journée (0 à 1), présente seulement en cas d'absence prévue */
+  avail?: number[];
   pepite: boolean;
   robust: number[];
   next: Fixture[];
@@ -92,7 +94,7 @@ export interface Meta {
 }
 
 /** [id, nom, club, id club, poste, prix, statut] : joueurs non évalués */
-export type Other = [number, string, string, number, Pos, number, string];
+export type Other = [number, string, string, number, Pos, number, string, string?];
 
 export interface Payload {
   others?: Other[];
@@ -122,13 +124,13 @@ export interface IndicatorBacktest {
 }
 
 /** Joueur non évalué, complété avec des valeurs neutres pour l'affichage. */
-export function fromOther([id, name, team, team_id, pos, price, status]: Other): Player {
+export function fromOther([id, name, team, team_id, pos, price, status, news]: Other): Player {
   return {
     id, code: 0, name, full_name: name, team, team_id, pos, price, status,
     ep: 0, ep_opt: null, ep_x: null, gap: null, ep_gw: null, value: 0, share: 0, minutes: 0, games: 0,
     conc: null, xgi90: null, xg: 0, xa: 0, goals: 0, assists: 0, points: 0, car_fin: null, luck_g: null,
     own: 0, net_tr: 0, pen: null, new: false, chance: null,
-    news: "Pas assez de temps de jeu pour être évalué : compté à 0 point.",
+    news: news || "Pas assez de temps de jeu pour être évalué : compté à 0 point.",
     motif: "minutes", pool: false, g: [], pepite: false, robust: [], next: [], hist: [],
   };
 }

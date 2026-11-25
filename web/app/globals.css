@@ -606,3 +606,6 @@ summary::-webkit-details-marker { display: none; }
   .move .apply, .move .undo { grid-column: 1 / -1; justify-self: start; }
 }
 .linkish { all: unset; cursor: pointer; text-decoration: underline; color: var(--ink2); }
+.fx.out { opacity: 0.55; border-style: dashed; }
+.fx.out small { color: var(--bad); }
+.metric .v small { font-family: var(--mono); }

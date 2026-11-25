@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 import time
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -64,16 +65,23 @@ def run(args):
     teams = db.query(con, "SELECT * FROM teams").set_index("id")
     ctx = model.fixture_context(con, teams, next_gw, args.horizon)
     df = model.expected_points(feats, ctx)
-    pool, motifs = model.judgment_pool(df)
     log.info("%d GW jouée(s), poids saison en cours %.0f %% (taux) / %.0f %% (minutes)",
              info["gw_played"], info["w_rate"] * 100, info["w_share"] * 100)
-    log.info("%d joueurs évalués, %d dans le pool d'optimisation", len(df), len(pool))
 
-    # 4. Valeurs d'optimisation journée par journée. Le solveur et le site
-    #    additionnent les mêmes colonnes : mêmes réglages, même équipe.
+    # 4. Valeurs journée par journée, disponibilité comprise (blessures,
+    #    suspensions). Le solveur et le site additionnent les mêmes colonnes.
     last_gw = max((e["id"] for e in events), default=38)
     n_gw = max(1, min(max(GW_WINDOW, args.horizon), last_gw - next_gw + 1))
-    per_gw = model.gameweek_points(con, feats.loc[df.index], teams, next_gw, n_gw)
+    gws = list(range(next_gw, next_gw + n_gw))
+    deadlines = {e["id"]: datetime.fromisoformat(e["deadline_time"].replace("Z", "+00:00"))
+                 for e in events if e.get("deadline_time")}
+    avail = model.availability(feats.loc[df.index], deadlines, gws, datetime.now(timezone.utc))
+    per = model.gameweek_points(con, feats.loc[df.index], teams, next_gw, n_gw, avail)
+    df = model.horizon_totals(df, per, args.horizon)
+    pool, motifs = model.judgment_pool(df)
+    per_gw = per["opt"]
+    log.info("%d joueurs évalués, %d dans le pool d'optimisation, %d avec une absence prévue",
+             len(df), len(pool), int((avail.min(axis=1) < 1).sum()))
 
     def over(h):
         return per_gw.iloc[:, :h].sum(axis=1)
@@ -106,7 +114,7 @@ def run(args):
             "deadline": next((e.get("deadline_time") for e in events if e["id"] == next_gw), None),
             "bench_weight": BENCH_WEIGHT,
             "source": "replay" if args.replay else "api", "api_calls": client.calls}
-    payload = export.build_payload(df, pool, motifs, lineup, stability, ctx, per_gw,
+    payload = export.build_payload(df, pool, motifs, lineup, stability, ctx, per_gw, avail,
                                    db.next_fixtures(con, next_gw, 5), db.gw_history(con),
                                    teams, meta, db.roster(con))
     export.write(payload, df, pool, motifs, stability, args.out)

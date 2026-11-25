@@ -10,6 +10,9 @@ sont calculées en SQL (db.py) ; ce module applique les mélanges, les lissages
 et le calcul d'EP.
 """
 
+import re
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 import pandas as pd
 
@@ -93,8 +96,8 @@ def build_features(con, gw_flag, min_minutes=MIN_PAST_MINUTES,
     share = share_cur.fillna(share_past)
     share[both] = (1 - w_share) * share_past[both] + w_share * share_cur[both]
     share = share.clip(upper=1.0)
-    chance = f["chance_next"]
-    share = share.where(chance.isna(), share * chance / 100.0)
+    # La disponibilité (blessure, suspension) n'est PAS appliquée ici : elle
+    # dépend de la journée (voir availability), pas du joueur en général.
     for pid, val in overrides.items():
         if pid in share.index:
             share[pid] = float(val)
@@ -185,7 +188,65 @@ def _blend(pos_id, ep, ep_x, gap):
     return out
 
 
-def gameweek_points(con, f, teams_df, first, n):
+AVAIL_RAMP_UNKNOWN = [0.0, 0.25, 0.5, 0.75]    # blessé sans date de retour annoncée
+AVAIL_RAMP_SUSPENDED = [0.0, 0.5]              # suspendu sans date
+_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+_BACK = re.compile(r"(?:expected back|until)\s+(\d{1,2})\s+([a-z]{3})", re.I)
+
+
+def return_date(news, today):
+    """« Expected back 06 Dec » ou « Suspended until 29 Nov » -> date, sinon None."""
+    m = _BACK.search(news or "")
+    if not m or m.group(2).lower() not in _MONTHS:
+        return None
+    day, month = int(m.group(1)), _MONTHS[m.group(2).lower()]
+    try:
+        d = datetime(today.year, month, day, tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    if d < today - timedelta(days=60):          # « 05 Jan » lu en décembre
+        d = d.replace(year=today.year + 1)
+    return d
+
+
+def availability(f, deadlines, gws, today):
+    """
+    Probabilité d'être disponible à chaque journée (joueur × journée).
+
+    Le club ne donne qu'un pourcentage pour la PROCHAINE journée. Appliquer
+    ce chiffre à tout l'horizon effaçait un joueur blessé une semaine des 8
+    journées suivantes. Ici :
+      - date de retour annoncée (« Expected back 06 Dec », « Suspended until
+        29 Nov ») : absent jusqu'à cette date, disponible ensuite ;
+      - blessé sans date : 0 %, puis 25, 50, 75, puis 100 % ;
+      - suspendu sans date : 0 %, 50 %, puis 100 % ;
+      - incertain (25, 50, 75 %) : ce chiffre à la prochaine journée, puis
+        à mi-chemin de 100 %, puis 100 %.
+    """
+    A = pd.DataFrame(1.0, index=f.index, columns=gws)
+    for pid, r in f.iterrows():
+        chance = r.get("chance_next")
+        chance = None if chance is None or pd.isna(chance) else float(chance) / 100
+        status = r.get("status") or "a"
+        if status == "a" and (chance is None or chance >= 1):
+            continue
+        back = return_date(r.get("news"), today)
+        if back is not None:
+            A.loc[pid] = [0.0 if deadlines.get(g) and deadlines[g] < back else 1.0 for g in gws]
+            continue
+        if status == "i":
+            ramp = AVAIL_RAMP_UNKNOWN if not chance else [chance, (chance + 1) / 2]
+        elif status in ("s", "n"):
+            ramp = AVAIL_RAMP_SUSPENDED
+        else:
+            c = 1.0 if chance is None else chance
+            ramp = [c, (c + 1) / 2]
+        A.loc[pid] = [ramp[k] if k < len(ramp) else 1.0 for k in range(len(gws))]
+    return A
+
+
+def gameweek_points(con, f, teams_df, first, n, avail=None):
     """
     Valeur d'optimisation de chaque joueur, journée par journée, de `first` à
     `first + n - 1`. Le site additionne ces colonnes pour la période choisie
@@ -213,9 +274,25 @@ def gameweek_points(con, f, teams_df, first, n):
     att = (f["xg90"] * pos.map(GOAL_PTS) + f["xa90"] * ASSIST_PTS + pen + APPEARANCE_PTS) * share
     ep = F.mul(non_cs, axis=0) + C.mul(cs_pts, axis=0)
     ep_x = (F.mul(att, axis=0) + C.mul(cs_pts, axis=0)).where(f["xgi90"].notna(), axis=0)
-    # le signe de l'écart ne dépend pas du match : on le lit sur la somme
+    # le signe de l'écart ne dépend ni du match ni de la disponibilité : on le lit sur la somme
     gap = ep_x.sum(axis=1, min_count=1) - ep.sum(axis=1)
-    return pd.DataFrame({g: _blend(pos, ep[g], ep_x[g], gap) for g in gws})
+    if avail is not None:
+        ep, ep_x = ep * avail[gws], ep_x * avail[gws]
+    opt = pd.DataFrame({g: _blend(pos, ep[g], ep_x[g], gap) for g in gws})
+    return {"ep": ep, "ep_x": ep_x, "opt": opt}
+
+
+def horizon_totals(df, per, horizon):
+    """EP affiché = somme des journées de l'horizon, disponibilité comprise."""
+    df = df.copy()
+    cols = per["ep"].columns[:horizon]
+    df["ep"] = per["ep"][cols].sum(axis=1)
+    df["ep_x"] = per["ep_x"][cols].sum(axis=1, min_count=1).where(df["xgi90"].notna())
+    df["gap"] = df["ep_x"] - df["ep"]
+    df["val_x"] = df["ep_x"] / df["price"]
+    played = (per["ep"][cols] > 0).sum(axis=1).replace(0, np.nan)
+    df["ep_gw"] = df["ep"] / played
+    return df
 
 
 def judgment_pool(df):

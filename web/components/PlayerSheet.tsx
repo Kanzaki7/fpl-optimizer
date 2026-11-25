@@ -88,6 +88,9 @@ export function PlayerSheet({ player: p, meta, role, onClose, extra, actions = t
   const span = settings.to - settings.from + 1;
   const nextIdx = settings.from - meta.gws[0];
   const nextV = p.g[nextIdx] ?? 0;
+  const availAt = (gw: number) => p.avail?.[gw - meta.gws[0]] ?? 1;
+  const unavailableAt = (gw: number) => availAt(gw) === 0;
+  const absent = meta.gws.filter((g) => availAt(g) === 0);
   const h = meta.horizon;
   const unavailable = p.status !== "a" || (p.chance != null && p.chance < 100);
   const robust = p.robust.length;
@@ -128,6 +131,11 @@ export function PlayerSheet({ player: p, meta, role, onClose, extra, actions = t
             {p.pepite ? <span className="tag good">Pépite</span> : null}
           </div>
           {p.news ? <p className="muted" style={{ fontSize: 13, margin: "10px 0 0" }}>« {p.news} »</p> : null}
+          {absent.length ? (
+            <p className="muted" style={{ fontSize: 13, margin: "6px 0 0" }}>
+              Compté absent {absent.length === 1 ? `à la journée ${absent[0]}` : `des journées ${absent[0]} à ${absent[absent.length - 1]}`}, puis disponible.
+            </p>
+          ) : null}
           {actions ? <div className="sheet-actions">
             <button type="button" className={`btn ${forced ? "" : "ghost"}`} aria-pressed={forced} onClick={() => toggle("force", p.id)}>
               {forced ? "Imposé ✓" : "Imposer"}
@@ -142,18 +150,19 @@ export function PlayerSheet({ player: p, meta, role, onClose, extra, actions = t
           {extra}
           <section>
             <div className="metrics">
-              <Metric k={`Points attendus · J${settings.from}${span > 1 ? `–${settings.to}` : ""}`} v={num(pv)}
-                h={p.pool ? `Valeur utilisée par le solveur, environ ${num(pv / span)} par journée.`
+              <Metric k={`Prévus · J${settings.from}${span > 1 ? `–${settings.to}` : ""}`} v={num(pv)}
+                h={p.pool ? `Soit ${num(pv / span)} par journée, d'après ses saisons passées et la saison en cours.`
                   : `${(p.motif && MOTIF[p.motif]) || "Hors du pool."} Imposez-le pour le prendre quand même.`} />
+              <Metric k="Réels cette saison" v={p.points}
+                h={p.games ? `Soit ${num(p.points / p.games)} par match joué (${p.games} match${p.games > 1 ? "s" : ""}).` : "Pas encore joué cette saison."} />
               <Metric k={`Journée ${settings.from}`} v={nextV ? num(nextV) : "—"}
-                h={nextV ? "Points attendus sur cette seule journée : utile pour le capitaine." : "Pas de match cette journée."} />
-              <Metric k={`Selon le jeu produit · ${h} J`} v={num(p.ep_x)}
-                h={p.pos === "GK" ? "Peu parlant pour un gardien : les arrêts n'y sont pas." : "Avec ses xG et xA au lieu de ses buts et passes."} />
-              <Metric k={`Écart · ${h} J`} v={<span className={p.gap == null ? "" : p.gap > 3 ? "pos" : p.gap < -10 ? "neg" : ""}>{signed(p.gap)}</span>}
-                h={p.gap == null ? "Pas assez de minutes cette saison."
-                  : p.gap > 3 ? "Son jeu vaut plus que ses points : il pourrait progresser."
-                  : p.gap < -10 ? "Ses points dépassent nettement son jeu : prudence."
-                  : "Écart habituel : ce calcul ignore bonus et actions défensives."} />
+                h={nextV ? "Prévus sur cette seule journée : utile pour le capitaine." : unavailableAt(settings.from) ? "Absent cette journée." : "Pas de match cette journée."} />
+              <Metric k={`Jeu produit · ${h} J`} v={<>{num(p.ep_x)} <small className={p.gap == null ? "dim" : p.gap > 3 ? "pos" : p.gap < -10 ? "neg" : "dim"} style={{ fontSize: 12 }}>{p.gap == null ? "" : `(${signed(p.gap)})`}</small></>}
+                h={p.pos === "GK" ? "Avec ses xG et xA : peu parlant pour un gardien (les arrêts n'y sont pas)."
+                  : p.gap == null ? "Pas assez de minutes cette saison."
+                  : p.gap > 3 ? "Avec ses xG et xA : son jeu vaut plus que ses points, il pourrait progresser."
+                  : p.gap < -10 ? "Avec ses xG et xA : ses points dépassent nettement son jeu, prudence."
+                  : "Avec ses xG et xA au lieu de ses buts et passes : écart habituel."} />
             </div>
           </section>
 
@@ -175,11 +184,15 @@ export function PlayerSheet({ player: p, meta, role, onClose, extra, actions = t
           <section>
             <div className="label" style={{ marginBottom: 8 }}>Prochains matchs</div>
             <div className="fixtures">
-              {p.next.map(([gw, opp, home, fdr]) => (
-                <div key={`${gw}-${opp}`} className="fx" data-fdr={fdr} title={`Difficulté ${fdr} sur 5`}>
-                  {opp}<small>{home ? "dom." : "ext."} · J{gw}</small>
-                </div>
-              ))}
+              {p.next.map(([gw, opp, home, fdr]) => {
+                const a = availAt(gw);
+                return (
+                  <div key={`${gw}-${opp}`} className={`fx ${a < 1 ? "out" : ""}`} data-fdr={fdr}
+                    title={`Difficulté ${fdr} sur 5${a < 1 ? ` · disponible à ${Math.round(a * 100)} %` : ""}`}>
+                    {opp}<small>{a === 0 ? "absent" : a < 1 ? `${Math.round(a * 100)} %` : `${home ? "dom." : "ext."} · J${gw}`}</small>
+                  </div>
+                );
+              })}
             </div>
             <p className="muted" style={{ fontSize: 12.5, margin: "8px 0 0" }}>Plus la case est orange, plus l&apos;adversaire est difficile.</p>
           </section>

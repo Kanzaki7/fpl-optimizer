@@ -24,7 +24,7 @@ function Token({ p, v, role, forced, mark, selected, onOpen }: {
       </span>
       <span className="nm">{p.name}</span>
       <span className="meta"><span className="club">{p.team}</span>{price(p.price)}</span>
-      <span className="ep">{num(v)} <small>pts</small></span>
+      <span className="ep">{num(v)} <small>prévus</small></span>
     </button>
   );
 }
