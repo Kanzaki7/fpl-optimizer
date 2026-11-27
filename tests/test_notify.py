@@ -13,7 +13,8 @@ def test_due_window():
     now = datetime(2026, 11, 27, 5, 17, tzinfo=timezone.utc)
     iso = lambda d: d.isoformat().replace("+00:00", "Z")  # noqa: E731
     assert notify.due(iso(now + timedelta(hours=29)), now)          # veille d'un samedi midi
-    assert not notify.due(iso(now + timedelta(hours=5)), now)       # trop tard : déjà envoyé la veille
+    assert notify.due(iso(now + timedelta(hours=8)), now)           # exécution retardée : encore à temps
+    assert not notify.due(iso(now + timedelta(hours=5)), now)       # trop tard pour être utile
     assert not notify.due(iso(now + timedelta(hours=53)), now)      # trop tôt : ce sera demain
     assert not notify.due(None, now)
 
@@ -89,6 +90,7 @@ def test_email_renders(setup, api_dir, tmp_path, monkeypatch):
     html = (out / "42.html").read_text(encoding="utf-8")
     assert "À faire avant la journée 4" in html and "Vendre" in html and "tok" in html
     assert "?equipe=42" in html
+    assert sent == []                         # un test (--force) ne marque pas la journée comme envoyée
 
 
 def test_render_without_transfers():

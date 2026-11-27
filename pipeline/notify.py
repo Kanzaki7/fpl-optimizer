@@ -36,11 +36,14 @@ MAX_TRANSFERS = 2
 
 
 # ---------------------------------------------------------------- quand envoyer
-def due(deadline_iso, now, lo_h=24, hi_h=48):
+def due(deadline_iso, now, lo_h=6, hi_h=48):
     """
-    Vrai si la date limite tombe entre 24 h et 48 h après maintenant. Le
-    workflow tourne une fois par jour : une seule exécution tombe dans cette
-    fenêtre, soit la veille ou l'avant-veille de la journée.
+    Vrai si la date limite tombe entre 6 h et 48 h après maintenant.
+
+    Le workflow tourne une fois par jour, mais GitHub peut retarder une
+    exécution planifiée de plusieurs heures : la fenêtre fait donc 42 h pour
+    qu'au moins une exécution y tombe toujours. L'envoi part à la première ;
+    last_sent_gw empêche d'envoyer deux fois la même journée.
     """
     if not deadline_iso:
         return False
@@ -152,7 +155,8 @@ def build_message(sender, to, subject, html, text, unsubscribe_url):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python -m pipeline.notify")
     ap.add_argument("--data", default=os.path.join(ROOT, "web", "public", "data", "latest.json"))
-    ap.add_argument("--force", action="store_true", help="envoie même hors de la fenêtre 24-48 h")
+    ap.add_argument("--force", action="store_true",
+                    help="test : envoie maintenant, sans marquer la journée comme envoyée")
     ap.add_argument("--dry-run", metavar="DIR", help="écrit les e-mails dans DIR au lieu de les envoyer")
     ap.add_argument("--replay", help="API FPL rejouée (tests)")
     args = ap.parse_args(argv)
@@ -213,7 +217,8 @@ def main(argv=None):
                     smtp = smtplib.SMTP(host, port, timeout=30)
                 smtp.login(sender, password)
             smtp.send_message(build_message(sender, sub["email"], subject, html, text, ctx["unsubscribe_url"]))
-            store.mark_sent(sub["id"], gw)
+            if not args.force:              # un test ne remplace pas l'envoi automatique
+                store.mark_sent(sub["id"], gw)
             sent += 1
             log.info("  %s : %s", sub["fpl_id"], subject)
     finally:
